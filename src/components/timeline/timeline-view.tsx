@@ -4,6 +4,7 @@ import { format, isToday, isYesterday, isThisWeek, isThisYear } from "date-fns";
 import { es } from "date-fns/locale";
 import { Loader2 } from "lucide-react";
 import type { Memory } from "@/types/memory";
+import { FirestoreErrorPanel } from "@/components/firestore/firestore-error-panel";
 import { MemoryCard } from "@/components/memories/memory-card";
 
 function groupLabel(date: Date): string {
@@ -28,7 +29,7 @@ function groupMemories(memories: Memory[]): Map<string, Memory[]> {
 interface TimelineViewProps {
   memories: Memory[];
   loading: boolean;
-  error: string | null;
+  error: unknown;
 }
 
 export function TimelineView({ memories, loading, error }: TimelineViewProps) {
@@ -42,9 +43,10 @@ export function TimelineView({ memories, loading, error }: TimelineViewProps) {
 
   if (error) {
     return (
-      <p className="py-8 text-center text-sm text-destructive" role="alert">
-        {error}
-      </p>
+      <FirestoreErrorPanel
+        error={error}
+        title="No se pudo cargar la línea de tiempo"
+      />
     );
   }
 

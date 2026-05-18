@@ -7,7 +7,7 @@ import type { Memory } from "@/types/memory";
 export function useMemories(userId: string | undefined) {
   const [memories, setMemories] = useState<Memory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
 
   useEffect(() => {
     if (!userId) {
@@ -25,7 +25,7 @@ export function useMemories(userId: string | undefined) {
         setError(null);
       },
       (err) => {
-        setError(err.message);
+        setError(err);
         setLoading(false);
       },
     );

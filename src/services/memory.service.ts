@@ -11,10 +11,12 @@ import {
   Timestamp,
   updateDoc,
   where,
+  type FirestoreError,
   type Unsubscribe,
 } from "firebase/firestore";
 import { deleteObject, ref } from "firebase/storage";
 import { getFirebaseDb, getFirebaseStorage } from "@/firebase/client";
+import { isFirestoreIndexError } from "@/lib/firestore-errors";
 import { MEMORIES_COLLECTION } from "@/lib/constants";
 import type { Memory, MemoryInput, MemoryMediaFile, MemoryType } from "@/types/memory";
 import type { MemoryAnalysis } from "@/types/ai";
@@ -73,27 +75,73 @@ function mapMemory(id: string, data: Record<string, unknown>): Memory {
   };
 }
 
+function sortMemoriesByCreatedAtDesc(memories: Memory[]): Memory[] {
+  return [...memories].sort(
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+  );
+}
+
+function mapSnapshotDocs(
+  docs: { id: string; data: () => Record<string, unknown> }[],
+): Memory[] {
+  return docs.map((d) => mapMemory(d.id, d.data()));
+}
+
+/**
+ * Suscripción en tiempo real a recuerdos del usuario (timeline, chat, insights).
+ * Query principal: where(userId) + orderBy(createdAt desc) → índice compuesto en firestore.indexes.json
+ */
 export function subscribeMemories(
   userId: string,
   onData: (memories: Memory[]) => void,
   onError?: (error: Error) => void,
 ): Unsubscribe {
-  const q = query(
-    collection(getFirebaseDb(), MEMORIES_COLLECTION),
-    where("userId", "==", userId),
-    orderBy("createdAt", "desc"),
-  );
+  const col = collection(getFirebaseDb(), MEMORIES_COLLECTION);
+  let activeUnsub: Unsubscribe = () => {};
 
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      const memories = snapshot.docs.map((d) =>
-        mapMemory(d.id, d.data() as Record<string, unknown>),
-      );
-      onData(memories);
-    },
-    (err) => onError?.(err as Error),
-  );
+  const attachListener = (useServerOrder: boolean) => {
+    activeUnsub();
+
+    const q = useServerOrder
+      ? query(
+          col,
+          where("userId", "==", userId),
+          orderBy("createdAt", "desc"),
+        )
+      : query(col, where("userId", "==", userId));
+
+    activeUnsub = onSnapshot(
+      q,
+      (snapshot) => {
+        let memories = mapSnapshotDocs(snapshot.docs);
+        if (!useServerOrder) {
+          memories = sortMemoriesByCreatedAtDesc(memories);
+        }
+        onData(memories);
+      },
+      (err) => {
+        const firestoreErr = err as FirestoreError;
+
+        if (useServerOrder && isFirestoreIndexError(firestoreErr)) {
+          console.warn(
+            "[memories] Índice compuesto no disponible; usando consulta alternativa con orden local.",
+          );
+          attachListener(false);
+          return;
+        }
+
+        onError?.(
+          firestoreErr instanceof Error
+            ? firestoreErr
+            : new Error(String(firestoreErr)),
+        );
+      },
+    );
+  };
+
+  attachListener(true);
+
+  return () => activeUnsub();
 }
 
 export async function getMemory(
