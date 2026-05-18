@@ -4,6 +4,15 @@ import { getFirestore, type Firestore } from "firebase/firestore";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 import { firebaseConfig, isFirebaseConfigured } from "./config";
 
+export class FirebaseNotConfiguredError extends Error {
+  constructor() {
+    super(
+      "Firebase no está configurado. Añade las variables NEXT_PUBLIC_FIREBASE_* en Vercel o en .env.local.",
+    );
+    this.name = "FirebaseNotConfiguredError";
+  }
+}
+
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
 let db: Firestore | undefined;
@@ -11,12 +20,10 @@ let storage: FirebaseStorage | undefined;
 
 function getApp(): FirebaseApp {
   if (!isFirebaseConfigured()) {
-    throw new Error(
-      "Firebase no está configurado. Copia .env.example a .env.local y completa las variables.",
-    );
+    throw new FirebaseNotConfiguredError();
   }
   if (!app) {
-    app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+    app = getApps().length ? getApps()[0]! : initializeApp(firebaseConfig);
   }
   return app;
 }

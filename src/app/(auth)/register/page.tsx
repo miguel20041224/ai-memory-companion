@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { getFirebaseAuth } from "@/firebase/client";
+import { isFirebaseConfigured } from "@/firebase/config";
+import { getFirebaseAuthErrorMessage } from "@/lib/firebase-auth-errors";
 import { ensureUserProfile } from "@/services/user.service";
 import { APP_NAME } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
@@ -30,6 +32,12 @@ export default function RegisterPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    if (!isFirebaseConfigured()) {
+      setError("Firebase no está configurado en el servidor.");
+      setLoading(false);
+      return;
+    }
+
     try {
       const cred = await createUserWithEmailAndPassword(
         getFirebaseAuth(),
@@ -38,8 +46,8 @@ export default function RegisterPage() {
       );
       await ensureUserProfile(cred.user, nombre);
       router.replace("/timeline");
-    } catch {
-      setError("No se pudo crear la cuenta. Revisa los datos e inténtalo de nuevo.");
+    } catch (err) {
+      setError(getFirebaseAuthErrorMessage(err));
     } finally {
       setLoading(false);
     }

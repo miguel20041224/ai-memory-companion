@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { AuthProvider } from "@/components/providers/auth-provider";
+import { ClientErrorBoundary } from "@/components/providers/client-error-boundary";
 import { Toaster } from "sonner";
 import { APP_NAME } from "@/lib/constants";
 import "./globals.css";
@@ -28,11 +29,8 @@ export const metadata: Metadata = {
     telephone: false,
   },
   icons: {
-    icon: [
-      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
-    ],
-    apple: [{ url: "/icons/icon-192.png", sizes: "192x192" }],
+    icon: [{ url: "/icons/icon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/icons/icon.svg", type: "image/svg+xml" }],
   },
 };
 
@@ -53,15 +51,17 @@ export default function RootLayout({
   return (
     <html lang="es" className={`dark ${inter.variable} h-full`}>
       <body className="min-h-full bg-background text-foreground antialiased">
-        <AuthProvider>
-          {children}
+        <ClientErrorBoundary>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
           <Toaster
             position="top-center"
             richColors
             closeButton
             toastOptions={{ duration: 4000 }}
           />
-        </AuthProvider>
+        </ClientErrorBoundary>
       </body>
     </html>
   );

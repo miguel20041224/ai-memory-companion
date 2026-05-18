@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { format } from "date-fns";
@@ -26,6 +27,7 @@ interface MemoryCardProps {
 }
 
 export function MemoryCard({ memory, index = 0 }: MemoryCardProps) {
+  const [imageError, setImageError] = useState(false);
   const Icon = typeIcons[memory.type];
   const preview = memory.aiSummary ?? memoryDisplayContent(memory);
   const thumb = memoryPrimaryImageUrl(memory);
@@ -50,7 +52,7 @@ export function MemoryCard({ memory, index = 0 }: MemoryCardProps) {
             )}
           </CardHeader>
           <CardContent className="space-y-3">
-            {memory.type === "image" && thumb && (
+            {memory.type === "image" && thumb && !imageError && (
               <div className="relative aspect-[2/1] overflow-hidden rounded-lg">
                 <Image
                   src={thumb}
@@ -58,6 +60,7 @@ export function MemoryCard({ memory, index = 0 }: MemoryCardProps) {
                   fill
                   className="object-cover"
                   sizes="400px"
+                  onError={() => setImageError(true)}
                 />
               </div>
             )}

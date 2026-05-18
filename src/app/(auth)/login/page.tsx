@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { getFirebaseAuth } from "@/firebase/client";
+import { isFirebaseConfigured } from "@/firebase/config";
+import { getFirebaseAuthErrorMessage } from "@/lib/firebase-auth-errors";
 import { APP_NAME } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,11 +30,17 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    if (!isFirebaseConfigured()) {
+      setError("Firebase no está configurado en el servidor.");
+      setLoading(false);
+      return;
+    }
+
     try {
       await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
       router.replace("/timeline");
-    } catch {
-      setError("Credenciales incorrectas. Inténtalo de nuevo.");
+    } catch (err) {
+      setError(getFirebaseAuthErrorMessage(err));
     } finally {
       setLoading(false);
     }
