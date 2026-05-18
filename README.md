@@ -1,84 +1,376 @@
-# AI Memory Companion
+# 🧠 AI Memory Companion
 
-Memoria personal inteligente: captura recuerdos en texto (imagen/audio próximamente), analízalos con Gemini y conversa con tu línea de tiempo.
+> An AI-powered personal memory platform designed to help users capture, organize, and explore their life through intelligent conversations and insights.
 
-## Requisitos
+![Next.js](https://img.shields.io/badge/Next.js-15-black)
+![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue)
+![Firebase](https://img.shields.io/badge/Firebase-Backend-orange)
+![PWA](https://img.shields.io/badge/PWA-Mobile--Ready-purple)
+![AI Powered](https://img.shields.io/badge/AI-Gemini-green)
 
-- Node.js 20+
-- Proyecto en [Firebase](https://console.firebase.google.com/)
-- API key de [Google AI Studio](https://aistudio.google.com/) (Gemini)
+---
 
-## Configuración local
+# 🌍 Vision
 
-1. Clona el repositorio e instala dependencias:
+AI Memory Companion aims to become a personal AI-powered second brain — a place where users can store, revisit, and interact with their life experiences naturally.
+
+The platform combines modern AI, memory organization, and conversational interfaces to create a living digital memory experience.
+
+---
+
+# 🧠 Overview
+
+AI Memory Companion is a modern web application and installable PWA that transforms personal memories into an intelligent, searchable timeline.
+
+Users can store:
+
+- Notes and written memories
+- Images and photos
+- Audio recordings
+- AI-generated summaries and insights
+
+The platform uses artificial intelligence to analyze memories, extract meaningful information, and allow natural language interaction with personal history.
+
+---
+
+# ✨ Features
+
+## 📚 Smart Memory Timeline
+
+- Chronological memory organization
+- Grouped by days, months, and years
+- Modern timeline experience
+- Elegant memory cards
+- Responsive mobile-first layout
+
+---
+
+## 🤖 AI Memory Analysis
+
+Each memory is automatically processed with AI to generate:
+
+- Summaries
+- Keywords
+- Entities (people, places, events)
+- Emotional tone
+- Contextual insights
+
+---
+
+## 💬 Natural Language Search
+
+Users can ask questions like:
+
+- “What did I do in June?”
+- “When was my last trip?”
+- “Show memories about Medellín”
+- “Summarize my year”
+
+The AI retrieves relevant memories and generates contextual responses.
+
+---
+
+## 🖼️ Media Uploads
+
+- Image uploads
+- Audio uploads and recordings
+- Browser file access permissions
+- Firebase Storage integration
+- Media previews
+- Modern upload experience
+
+---
+
+## 📊 AI Insights Dashboard
+
+Generate intelligent life analytics such as:
+
+- Activity patterns
+- Emotional trends
+- Habit tracking
+- Weekly and monthly summaries
+
+---
+
+## 🔐 Authentication
+
+- Firebase Authentication
+- Email & password login
+- Persistent sessions
+- Secure user access
+
+---
+
+## 📱 Progressive Web App (PWA)
+
+- Installable on iPhone and Android
+- Mobile-first experience
+- App-like navigation
+- Optimized for touch devices
+
+---
+
+# 🛠️ Tech Stack
+
+## Frontend
+
+- Next.js
+- TypeScript
+- Tailwind CSS
+- shadcn/ui
+
+---
+
+## Backend & Database
+
+- Firebase
+- Firestore Database
+- Firebase Storage
+- Firebase Authentication
+
+---
+
+## AI
+
+- Google Gemini API
+
+---
+
+## Deployment
+
+- Vercel
+
+---
+
+# 🚀 Getting Started
+
+## 1. Clone the Repository
+
+```bash
+git clone <your-repository-url>
+cd ai-memory-companion
+```
+
+---
+
+## 2. Install Dependencies
 
 ```bash
 npm install
 ```
 
-2. Copia las variables de entorno:
+---
 
-```bash
-cp .env.example .env.local
+## 3. Environment Variables
+
+Create a `.env.local` file in the root directory:
+
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+
+GEMINI_API_KEY=
+
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-3. Completa `.env.local`:
+---
 
-| Variable | Descripción |
-|----------|-------------|
-| `NEXT_PUBLIC_FIREBASE_*` | Configuración del proyecto Firebase (Web app) |
-| `GEMINI_API_KEY` | Solo servidor — nunca expongas en el cliente |
-| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` en desarrollo |
+# 🔥 Firebase Setup
 
-4. En Firebase Console:
+Create a project in Firebase Console and enable the following services:
 
-- Activa **Authentication** → Email/Password
-- Crea **Firestore** en modo producción y despliega las reglas del repo (`firestore.rules`)
-- Crea índice compuesto: colección `memories`, campos `userId` (Asc) + `createdAt` (Desc)
-- Activa **Storage** si usarás medios
+---
 
-5. Ejecuta en desarrollo:
+## Authentication
+
+Enable:
+
+- Email/Password provider
+
+---
+
+## Firestore Database
+
+Create Firestore Database in:
+
+- Production mode
+
+Recommended regions:
+
+- `us-central1`
+- `southamerica-east1`
+
+---
+
+## Firebase Storage
+
+Enable Storage for:
+
+- Image uploads
+- Audio uploads
+- Future media features
+
+---
+
+## Firestore Indexes
+
+Create a composite index:
+
+| Collection | Fields |
+|---|---|
+| memories | userId (Asc) + createdAt (Desc) |
+
+---
+
+# 💻 Running the Project
+
+## Development
 
 ```bash
 npm run dev
 ```
 
-Abre [http://localhost:3000](http://localhost:3000).
+Open:
 
-## Estructura
+```txt
+http://localhost:3000
+```
 
-- `src/app/(auth)` — login y registro
-- `src/app/(app)` — timeline, chat, insights, recuerdos
-- `src/app/api/ai` — rutas de Gemini (analyze, chat, insights)
-- `src/services` — Firestore y Storage
-- `src/ai` — cliente Gemini y prompts
+---
 
-## Flujos principales
+## Production Build
 
-**Nuevo recuerdo:** formulario → `POST /api/ai/analyze` → `createMemory` en Firestore con metadatos IA.
+```bash
+npm run build
+npm run start
+```
 
-**Chat:** `searchMemories` en cliente → `POST /api/ai/chat` con pregunta y recuerdos relevantes.
+---
 
-## Despliegue en Vercel
+# 📂 Project Structure
 
-1. Importa el repositorio en [Vercel](https://vercel.com)
-2. Añade las mismas variables de `.env.example` en **Settings → Environment Variables**
-3. `GEMINI_API_KEY` solo en entorno de servidor (no marcar como expuesta al cliente)
-4. Despliega; `NEXT_PUBLIC_APP_URL` debe ser tu dominio de producción
+```txt
+src/
+├── app/
+│   ├── (auth)/
+│   ├── (app)/
+│   └── api/
+├── components/
+├── services/
+├── firebase/
+├── ai/
+├── hooks/
+├── lib/
+├── store/
+├── styles/
+└── types/
+```
 
-## Scripts
+---
 
-| Comando | Descripción |
-|---------|-------------|
-| `npm run dev` | Servidor de desarrollo |
-| `npm run build` | Build de producción |
-| `npm run start` | Servidor tras build |
-| `npm run lint` | ESLint |
+# 🧩 Core Application Flow
 
-## PWA
+## Creating Memories
 
-La app incluye `manifest.ts` e iconos en `public/icons/`. En iOS, usa “Añadir a pantalla de inicio” desde Safari.
+1. User creates a memory
+2. Content is uploaded to Firebase
+3. AI analyzes the memory
+4. Metadata is generated
+5. Memory is stored in Firestore
 
-## Licencia
+---
 
-Privado — uso personal del propietario del repositorio.
+## AI Chat
+
+1. User asks a question
+2. Relevant memories are retrieved
+3. Context is sent to Gemini
+4. AI generates a natural response
+
+---
+
+# 🎨 Design Philosophy
+
+The UI is inspired by:
+
+- Apple
+- Notion
+- Modern AI products
+
+Focus areas:
+
+- Minimalism
+- Smooth animations
+- Mobile-first UX
+- Clean typography
+- Elegant spacing
+- Soft shadows
+- AI-first experience
+
+---
+
+# 📱 Progressive Web App
+
+AI Memory Companion works as a modern installable PWA.
+
+Users can:
+
+- Install it on iPhone and Android
+- Add it to the home screen
+- Use it like a native application
+- Access a fully responsive mobile experience
+
+---
+
+## iPhone Installation
+
+1. Open the app in Safari
+2. Tap the **Share** button
+3. Select **Add to Home Screen**
+
+---
+
+# ☁️ Deployment
+
+The project is optimized for deployment on Vercel.
+
+## Deployment Steps
+
+1. Import repository into Vercel
+2. Add environment variables
+3. Deploy the application
+
+---
+
+# 🔒 Security Notes
+
+- `GEMINI_API_KEY` must remain server-side only
+- Never expose private API keys to the client
+- Validate uploaded file types and sizes
+- Use Firebase Security Rules in production
+
+---
+
+# 📌 Current Status
+
+The project is actively evolving and focused on building a premium AI-first memory experience for web and mobile users.
+
+Future plans include:
+
+- Advanced AI memory clustering
+- Semantic search
+- Voice memory assistant
+- AI-generated life summaries
+- Smart recommendations
+- Cross-device sync improvements
+
+---
+
+# 📄 License
+
+Private project — personal use only.
