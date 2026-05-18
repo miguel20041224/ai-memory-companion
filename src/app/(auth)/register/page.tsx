@@ -7,6 +7,7 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { getFirebaseAuth } from "@/firebase/client";
 import { isFirebaseConfigured } from "@/firebase/config";
 import { getActiveFirebaseConfig } from "@/firebase/runtime-config";
+import { syncAuthStoreUser } from "@/lib/auth-sync";
 import { getFirebaseAuthErrorMessage } from "@/lib/firebase-auth-errors";
 import { ensureUserProfile } from "@/services/user.service";
 import { APP_NAME } from "@/lib/constants";
@@ -46,6 +47,7 @@ export default function RegisterPage() {
         password,
       );
       await ensureUserProfile(cred.user, nombre);
+      syncAuthStoreUser(cred.user);
       router.replace("/timeline");
     } catch (err) {
       setError(getFirebaseAuthErrorMessage(err));

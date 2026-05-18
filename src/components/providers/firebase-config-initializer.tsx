@@ -8,10 +8,14 @@ interface FirebaseConfigInitializerProps {
   config: FirebasePublicConfig;
 }
 
-/** Sincroniza la config de Firebase inyectada por el servidor antes del primer auth. */
+/** Sincroniza la config antes de que corra el listener de auth. */
 export function FirebaseConfigInitializer({
   config,
 }: FirebaseConfigInitializerProps) {
+  if (typeof window !== "undefined") {
+    setActiveFirebaseConfig(config);
+  }
+
   useLayoutEffect(() => {
     setActiveFirebaseConfig(config);
   }, [config]);

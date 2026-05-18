@@ -1,5 +1,10 @@
-import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
-import { getAuth, type Auth } from "firebase/auth";
+import { getApp, getApps, initializeApp, type FirebaseApp } from "firebase/app";
+import {
+  browserLocalPersistence,
+  getAuth,
+  initializeAuth,
+  type Auth,
+} from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 import { isFirebaseConfigured } from "./config";
@@ -14,47 +19,64 @@ export class FirebaseNotConfiguredError extends Error {
   }
 }
 
+const FIREBASE_APP_NAME = "ai-memory-companion";
+
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
 let db: Firestore | undefined;
 let storage: FirebaseStorage | undefined;
-let initializedFor: string | null = null;
 
-function getApp(): FirebaseApp {
+function resolveFirebaseApp(config: ReturnType<typeof getActiveFirebaseConfig>): FirebaseApp {
+  const existing = getApps().find(
+    (candidate) => candidate.name === FIREBASE_APP_NAME,
+  );
+
+  if (existing) {
+    if (existing.options.projectId !== config.projectId) {
+      throw new Error(
+        "Conflicto de configuración Firebase: projectId distinto al de la sesión anterior. Recarga la página.",
+      );
+    }
+    return existing;
+  }
+
+  if (!app) {
+    app = initializeApp(config, FIREBASE_APP_NAME);
+  }
+
+  return app;
+}
+
+function getAppInstance(): FirebaseApp {
   const config = getActiveFirebaseConfig();
 
   if (!isFirebaseConfigured(config)) {
     throw new FirebaseNotConfiguredError();
   }
 
-  const configKey = config.projectId;
-
-  if (app && initializedFor !== configKey) {
-    app = undefined;
-    auth = undefined;
-    db = undefined;
-    storage = undefined;
-  }
-
-  if (!app) {
-    app = getApps().length ? getApps()[0]! : initializeApp(config);
-    initializedFor = configKey;
-  }
-
-  return app;
+  return resolveFirebaseApp(config);
 }
 
 export function getFirebaseAuth(): Auth {
-  if (!auth) auth = getAuth(getApp());
+  if (!auth) {
+    const firebaseApp = getAppInstance();
+    try {
+      auth = initializeAuth(firebaseApp, {
+        persistence: browserLocalPersistence,
+      });
+    } catch {
+      auth = getAuth(firebaseApp);
+    }
+  }
   return auth;
 }
 
 export function getFirebaseDb(): Firestore {
-  if (!db) db = getFirestore(getApp());
+  if (!db) db = getFirestore(getAppInstance());
   return db;
 }
 
 export function getFirebaseStorage(): FirebaseStorage {
-  if (!storage) storage = getStorage(getApp());
+  if (!storage) storage = getStorage(getAppInstance());
   return storage;
 }

@@ -7,6 +7,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { getFirebaseAuth } from "@/firebase/client";
 import { isFirebaseConfigured } from "@/firebase/config";
 import { getActiveFirebaseConfig } from "@/firebase/runtime-config";
+import { syncAuthStoreUser } from "@/lib/auth-sync";
 import { getFirebaseAuthErrorMessage } from "@/lib/firebase-auth-errors";
 import { APP_NAME } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
@@ -38,7 +39,12 @@ export default function LoginPage() {
     }
 
     try {
-      await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
+      const credential = await signInWithEmailAndPassword(
+        getFirebaseAuth(),
+        email,
+        password,
+      );
+      syncAuthStoreUser(credential.user);
       router.replace("/timeline");
     } catch (err) {
       setError(getFirebaseAuthErrorMessage(err));

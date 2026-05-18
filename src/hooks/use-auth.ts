@@ -25,57 +25,58 @@ export function useAuthListener() {
       return;
     }
 
-    let settled = false;
-    let unsub: (() => void) | undefined;
-
-    const finish = (fn: () => void) => {
-      if (settled) return;
-      settled = true;
-      fn();
-    };
+    let cancelled = false;
 
     const timeoutId = window.setTimeout(() => {
-      finish(() => {
-        if (useAuthStore.getState().loading) {
-          setUser(null);
-          setAuthError(
-            "Tiempo de espera al conectar con Firebase. Revisa tu red, dominios autorizados en Firebase Console y las variables en Vercel.",
-          );
-          setLoading(false);
-        }
-      });
+      if (cancelled) return;
+      if (useAuthStore.getState().loading) {
+        setUser(null);
+        setAuthError(
+          "Tiempo de espera al conectar con Firebase. Revisa tu red, dominios autorizados en Firebase Console y las variables en Vercel.",
+        );
+        setLoading(false);
+      }
     }, AUTH_INIT_TIMEOUT_MS);
 
+    let unsub: (() => void) | undefined;
+
     try {
-      unsub = onAuthStateChanged(getFirebaseAuth(), async (user) => {
-        if (user) {
-          try {
-            await ensureUserProfile(user);
-          } catch {
-            // profile sync is best-effort
+      unsub = onAuthStateChanged(getFirebaseAuth(), (firebaseUser) => {
+        void (async () => {
+          if (cancelled) return;
+
+          if (firebaseUser) {
+            try {
+              await ensureUserProfile(firebaseUser);
+            } catch {
+              // profile sync is best-effort; no bloquear la sesión
+            }
           }
-        }
-        finish(() => {
-          setUser(user);
+
+          if (cancelled) return;
+
+          // Cada evento de auth actualiza el store (Firebase suele emitir null y luego el usuario).
+          setUser(firebaseUser);
           setAuthError(null);
           setLoading(false);
-        });
+        })();
       });
     } catch (error) {
-      const message =
-        error instanceof FirebaseNotConfiguredError
-          ? error.message
-          : error instanceof Error
+      if (!cancelled) {
+        const message =
+          error instanceof FirebaseNotConfiguredError
             ? error.message
-            : "No se pudo inicializar la autenticación.";
-      finish(() => {
+            : error instanceof Error
+              ? error.message
+              : "No se pudo inicializar la autenticación.";
         setUser(null);
         setAuthError(message);
         setLoading(false);
-      });
+      }
     }
 
     return () => {
+      cancelled = true;
       window.clearTimeout(timeoutId);
       unsub?.();
     };
