@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "AI Memory Companion (Android)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "toolArgs": [
+        "--dart-define=GEMINI_API_KEY=${env:GEMINI_API_KEY}",
+        "--dart-define=GOOGLE_SPEECH_API_KEY=${env:GOOGLE_SPEECH_API_KEY}"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+"use client";
+
+import { useAuth } from "@/hooks/use-auth";
+import { useMemories } from "@/hooks/use-memories";
+import { InsightsPanel } from "@/components/insights/insights-panel";
+import { Loader2 } from "lucide-react";
+
+export default function InsightsPage() {
+  const { user } = useAuth();
+  const { memories, loading } = useMemories(user?.uid);
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-xl font-semibold">Insights</h2>
+        <p className="text-sm text-muted-foreground">
+          Patrones y reflexiones sobre tu vida
+        </p>
+      </div>
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : (
+        <InsightsPanel memories={memories} />
+      )}
+    </div>
+  );
+}
