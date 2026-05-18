@@ -1,12 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { ImageIcon, Mic, Type } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Memory } from "@/types/memory";
-import { memoryDisplayContent } from "@/types/memory";
+import {
+  memoryDisplayContent,
+  memoryPrimaryImageUrl,
+} from "@/types/memory";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -24,6 +28,7 @@ interface MemoryCardProps {
 export function MemoryCard({ memory, index = 0 }: MemoryCardProps) {
   const Icon = typeIcons[memory.type];
   const preview = memory.aiSummary ?? memoryDisplayContent(memory);
+  const thumb = memoryPrimaryImageUrl(memory);
 
   return (
     <motion.div
@@ -45,6 +50,17 @@ export function MemoryCard({ memory, index = 0 }: MemoryCardProps) {
             )}
           </CardHeader>
           <CardContent className="space-y-3">
+            {memory.type === "image" && thumb && (
+              <div className="relative aspect-[2/1] overflow-hidden rounded-lg">
+                <Image
+                  src={thumb}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  sizes="400px"
+                />
+              </div>
+            )}
             <CardTitle className="line-clamp-2 text-base font-medium leading-snug">
               {preview}
             </CardTitle>

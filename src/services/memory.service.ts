@@ -13,19 +13,37 @@ import {
   where,
   type Unsubscribe,
 } from "firebase/firestore";
-import {
-  deleteObject,
-  getDownloadURL,
-  ref,
-  uploadBytes,
-} from "firebase/storage";
+import { deleteObject, ref } from "firebase/storage";
 import { getFirebaseDb, getFirebaseStorage } from "@/firebase/client";
 import { MEMORIES_COLLECTION } from "@/lib/constants";
-import type { Memory, MemoryInput, MemoryType } from "@/types/memory";
+import type { Memory, MemoryInput, MemoryMediaFile, MemoryType } from "@/types/memory";
 import type { MemoryAnalysis } from "@/types/ai";
+
+function mapMediaFile(raw: unknown): MemoryMediaFile | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (!o.url || !o.storagePath) return null;
+  return {
+    url: String(o.url),
+    storagePath: String(o.storagePath),
+    fileName: String(o.fileName ?? ""),
+    fileSize: Number(o.fileSize ?? 0),
+    mimeType: String(o.mimeType ?? ""),
+    duration: o.duration != null ? Number(o.duration) : undefined,
+  };
+}
 
 function mapMemory(id: string, data: Record<string, unknown>): Memory {
   const createdAt = data.createdAt as Timestamp | undefined;
+  const mediaFilesRaw = data.mediaFiles;
+  const mediaFiles = Array.isArray(mediaFilesRaw)
+    ? mediaFilesRaw.map(mapMediaFile).filter((f): f is MemoryMediaFile => f !== null)
+    : undefined;
+
+  const mediaUrls = Array.isArray(data.mediaUrls)
+    ? data.mediaUrls.map(String)
+    : undefined;
+
   return {
     id,
     userId: String(data.userId ?? ""),
@@ -33,6 +51,12 @@ function mapMemory(id: string, data: Record<string, unknown>): Memory {
     type: (data.type as MemoryType) ?? "text",
     createdAt: createdAt?.toDate() ?? new Date(),
     mediaUrl: data.mediaUrl ? String(data.mediaUrl) : undefined,
+    mediaUrls,
+    mediaFiles,
+    fileName: data.fileName ? String(data.fileName) : undefined,
+    fileSize: data.fileSize != null ? Number(data.fileSize) : undefined,
+    duration: data.duration != null ? Number(data.duration) : undefined,
+    mimeType: data.mimeType ? String(data.mimeType) : undefined,
     aiSummary: data.aiSummary ? String(data.aiSummary) : undefined,
     aiKeywords: Array.isArray(data.aiKeywords)
       ? data.aiKeywords.map(String)
@@ -83,27 +107,25 @@ export async function getMemory(
   return memory;
 }
 
-export async function uploadMemoryMedia(
-  userId: string,
-  file: File,
-): Promise<string> {
-  const ext = file.name.split(".").pop() ?? "bin";
-  const path = `memories/${userId}/${Date.now()}.${ext}`;
-  const storageRef = ref(getFirebaseStorage(), path);
-  await uploadBytes(storageRef, file);
-  return getDownloadURL(storageRef);
-}
-
 export async function createMemory(
   userId: string,
   input: MemoryInput,
   analysis: MemoryAnalysis,
 ): Promise<string> {
+  const primaryUrl =
+    input.mediaUrls?.[0] ?? input.mediaUrl ?? null;
+
   const docRef = await addDoc(collection(getFirebaseDb(), MEMORIES_COLLECTION), {
     userId,
     content: input.content,
     type: input.type,
-    mediaUrl: input.mediaUrl ?? null,
+    mediaUrl: primaryUrl,
+    mediaUrls: input.mediaUrls ?? (primaryUrl ? [primaryUrl] : []),
+    mediaFiles: input.mediaFiles ?? [],
+    fileName: input.fileName ?? null,
+    fileSize: input.fileSize ?? null,
+    duration: input.duration ?? null,
+    mimeType: input.mimeType ?? null,
     transcription: input.transcription ?? null,
     createdAt: serverTimestamp(),
     aiSummary: analysis.summary,
@@ -114,6 +136,14 @@ export async function createMemory(
   return docRef.id;
 }
 
+async function deleteStoragePath(storagePath: string): Promise<void> {
+  try {
+    await deleteObject(ref(getFirebaseStorage(), storagePath));
+  } catch {
+    // already deleted or legacy URL-only record
+  }
+}
+
 export async function deleteMemory(
   userId: string,
   memory: Memory,
@@ -121,14 +151,23 @@ export async function deleteMemory(
   if (memory.userId !== userId) {
     throw new Error("No autorizado");
   }
-  if (memory.mediaUrl) {
+
+  const paths = new Set<string>();
+  memory.mediaFiles?.forEach((f) => paths.add(f.storagePath));
+
+  if (paths.size === 0 && memory.mediaUrl) {
     try {
-      const storageRef = ref(getFirebaseStorage(), memory.mediaUrl);
-      await deleteObject(storageRef);
+      const url = new URL(memory.mediaUrl);
+      const match = url.pathname.match(/\/o\/(.+)$/);
+      if (match?.[1]) {
+        paths.add(decodeURIComponent(match[1].split("?")[0]));
+      }
     } catch {
-      // media may be external URL
+      // not a valid URL
     }
   }
+
+  await Promise.all([...paths].map(deleteStoragePath));
   await deleteDoc(doc(getFirebaseDb(), MEMORIES_COLLECTION, memory.id));
 }
 

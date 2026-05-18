@@ -9,7 +9,11 @@ import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { deleteMemory, getMemory } from "@/services/memory.service";
 import type { Memory } from "@/types/memory";
-import { memoryDisplayContent } from "@/types/memory";
+import {
+  memoryDisplayContent,
+  memoryPrimaryImageUrl,
+} from "@/types/memory";
+import { AudioPlayerPreview } from "@/components/upload/audio-player-preview";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,9 +48,9 @@ export default function MemoryDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-16">
+      <section className="flex justify-center py-16">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      </section>
     );
   }
 
@@ -59,10 +63,16 @@ export default function MemoryDetailPage() {
   }
 
   const body = memoryDisplayContent(memory);
+  const imageUrls =
+    memory.mediaUrls?.length
+      ? memory.mediaUrls
+      : memoryPrimaryImageUrl(memory)
+        ? [memoryPrimaryImageUrl(memory)!]
+        : [];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2">
+    <section className="space-y-6">
+      <header className="flex items-center gap-2">
         <Button variant="ghost" size="icon" onClick={() => router.back()}>
           <ArrowLeft className="h-5 w-5" />
           <span className="sr-only">Volver</span>
@@ -70,7 +80,7 @@ export default function MemoryDetailPage() {
         <time className="text-sm text-muted-foreground">
           {format(memory.createdAt, "EEEE d MMMM yyyy, HH:mm", { locale: es })}
         </time>
-      </div>
+      </header>
 
       <Card>
         <CardHeader>
@@ -79,23 +89,58 @@ export default function MemoryDetailPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
-            {body}
-          </p>
-
-          {memory.type === "image" && memory.mediaUrl && (
-            <div className="relative aspect-video overflow-hidden rounded-xl">
-              <Image
-                src={memory.mediaUrl}
-                alt="Recuerdo"
-                fill
-                className="object-cover"
-                sizes="(max-width: 512px) 100vw, 512px"
-              />
-            </div>
+          {body && (
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+              {body}
+            </p>
           )}
 
-          <div className="flex flex-wrap gap-2">
+          {memory.type === "image" && imageUrls.length > 0 && (
+            <ul
+              className={
+                imageUrls.length === 1
+                  ? "grid grid-cols-1"
+                  : "grid grid-cols-2 gap-2"
+              }
+            >
+              {imageUrls.map((url) => (
+                <li
+                  key={url}
+                  className="relative aspect-square overflow-hidden rounded-xl sm:aspect-video"
+                >
+                  <Image
+                    src={url}
+                    alt="Recuerdo"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 512px) 100vw, 512px"
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {memory.type === "audio" && memory.mediaUrl && (
+            <AudioPlayerPreview
+              src={memory.mediaUrl}
+              duration={memory.duration}
+              fileName={memory.fileName}
+            />
+          )}
+
+          {(memory.fileName || memory.fileSize) && (
+            <p className="text-xs text-muted-foreground">
+              {memory.fileName}
+              {memory.fileSize
+                ? ` · ${(memory.fileSize / 1024).toFixed(0)} KB`
+                : ""}
+              {memory.duration
+                ? ` · ${Math.round(memory.duration)}s`
+                : ""}
+            </p>
+          )}
+
+          <section className="flex flex-wrap gap-2">
             {memory.emotionalTone && (
               <Badge>{memory.emotionalTone}</Badge>
             )}
@@ -104,7 +149,7 @@ export default function MemoryDetailPage() {
                 {kw}
               </Badge>
             ))}
-          </div>
+          </section>
 
           {memory.aiEntities.length > 0 && (
             <p className="text-xs text-muted-foreground">
@@ -123,6 +168,6 @@ export default function MemoryDetailPage() {
         <Trash2 className="h-4 w-4" />
         {deleting ? "Eliminando…" : "Eliminar recuerdo"}
       </Button>
-    </div>
+    </section>
   );
 }
