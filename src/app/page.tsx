@@ -5,13 +5,14 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { isFirebaseConfigured } from "@/firebase/config";
+import { getActiveFirebaseConfig } from "@/firebase/runtime-config";
 
 export default function HomePage() {
   const router = useRouter();
   const { user, loading, authError } = useAuth();
 
   useEffect(() => {
-    if (!isFirebaseConfigured() || loading || authError) return;
+    if (!isFirebaseConfigured(getActiveFirebaseConfig()) || loading || authError) return;
     router.replace(user ? "/timeline" : "/login");
   }, [user, loading, authError, router]);
 

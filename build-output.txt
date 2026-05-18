@@ -1,0 +1,52 @@
+﻿node.exe : npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm 
+help npmrc` for supported config options.
+En línea: 1 Carácter: 1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm warn Unknow...config options.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+> ai_memory_companion@0.1.0 build
+> next build
+
+Ôû▓ Next.js 16.2.6 (Turbopack)
+- Environments: .env
+
+  Creating an optimized production build ...
+Ô£ô Compiled successfully in 8.6s
+  Running TypeScript ...
+  Finished TypeScript in 8.2s ...
+  Collecting page data using 11 workers ...
+  Generating static pages using 11 workers (0/14) ...
+  Generating static pages using 11 workers (3/14) 
+  Generating static pages using 11 workers (6/14) 
+  Generating static pages using 11 workers (10/14) 
+Ô£ô Generating static pages using 11 workers (14/14) in 632ms
+  Finalizing page optimization ...
+
+Route (app)
+Ôöî Ôùï /
+Ôö£ Ôùï /_not-found
+Ôö£ ãÆ /api/ai/analyze
+Ôö£ ãÆ /api/ai/chat
+Ôö£ ãÆ /api/ai/insights
+Ôö£ Ôùï /chat
+Ôö£ Ôùï /insights
+Ôö£ Ôùï /login
+Ôö£ Ôùï /manifest.webmanifest
+Ôö£ ãÆ /memories/[id]
+Ôö£ Ôùï /memories/new
+Ôö£ Ôùï /register
+Ôöö Ôùï /timeline
+
+
+Ôùï  (Static)   prerendered as static content
+ãÆ  (Dynamic)  server-rendered on demand
+
+npm notice
+npm notice New minor version of npm available! 11.12.1 -> 11.14.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.14.1
+npm notice To update run: npm install -g npm@11.14.1
+npm notice
+EXIT: 0

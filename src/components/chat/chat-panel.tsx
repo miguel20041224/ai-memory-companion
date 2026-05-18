@@ -15,16 +15,16 @@ interface ChatPanelProps {
   memories: Memory[];
 }
 
+const WELCOME_MESSAGE: ChatMessage = {
+  id: "welcome",
+  role: "assistant",
+  content:
+    "Hola. Pregúntame sobre tus recuerdos: fechas, personas, momentos o emociones.",
+  createdAt: new Date(0),
+};
+
 export function ChatPanel({ memories }: ChatPanelProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "welcome",
-      role: "assistant",
-      content:
-        "Hola. Pregúntame sobre tus recuerdos: fechas, personas, momentos o emociones.",
-      createdAt: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
 

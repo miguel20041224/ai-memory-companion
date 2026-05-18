@@ -6,6 +6,7 @@ import { useState } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { getFirebaseAuth } from "@/firebase/client";
 import { isFirebaseConfigured } from "@/firebase/config";
+import { getActiveFirebaseConfig } from "@/firebase/runtime-config";
 import { getFirebaseAuthErrorMessage } from "@/lib/firebase-auth-errors";
 import { ensureUserProfile } from "@/services/user.service";
 import { APP_NAME } from "@/lib/constants";
@@ -32,7 +33,7 @@ export default function RegisterPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    if (!isFirebaseConfigured()) {
+    if (!isFirebaseConfigured(getActiveFirebaseConfig())) {
       setError("Firebase no está configurado en el servidor.");
       setLoading(false);
       return;

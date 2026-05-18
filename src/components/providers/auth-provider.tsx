@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuthListener } from "@/hooks/use-auth";
+import type { FirebasePublicConfig } from "@/firebase/config";
 import {
   getMissingFirebaseEnvVars,
   isFirebaseConfigured,
@@ -12,9 +13,18 @@ function AuthProviderInner({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  if (!isFirebaseConfigured()) {
-    return <FirebaseSetupScreen missingVars={getMissingFirebaseEnvVars()} />;
+interface AuthProviderProps {
+  firebaseConfig: FirebasePublicConfig;
+  children: React.ReactNode;
+}
+
+export function AuthProvider({ firebaseConfig, children }: AuthProviderProps) {
+  if (!isFirebaseConfigured(firebaseConfig)) {
+    return (
+      <FirebaseSetupScreen
+        missingVars={getMissingFirebaseEnvVars(firebaseConfig)}
+      />
+    );
   }
 
   return <AuthProviderInner>{children}</AuthProviderInner>;

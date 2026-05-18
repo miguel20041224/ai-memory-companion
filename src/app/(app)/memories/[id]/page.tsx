@@ -24,14 +24,27 @@ export default function MemoryDetailPage() {
   const { user } = useAuth();
   const [memory, setMemory] = useState<Memory | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    if (!user || !params.id) return;
-    void getMemory(user.uid, params.id).then((m) => {
-      setMemory(m);
+    if (!user || !params.id) {
       setLoading(false);
-    });
+      return;
+    }
+    setLoading(true);
+    setLoadError(null);
+    void getMemory(user.uid, params.id)
+      .then((m) => {
+        setMemory(m);
+        setLoading(false);
+      })
+      .catch((err: unknown) => {
+        setLoadError(
+          err instanceof Error ? err.message : "No se pudo cargar el recuerdo.",
+        );
+        setLoading(false);
+      });
   }, [user, params.id]);
 
   async function handleDelete() {
@@ -51,6 +64,14 @@ export default function MemoryDetailPage() {
       <section className="flex justify-center py-16">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </section>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <p className="py-12 text-center text-sm text-destructive" role="alert">
+        {loadError}
+      </p>
     );
   }
 

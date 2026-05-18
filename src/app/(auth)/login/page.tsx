@@ -6,6 +6,7 @@ import { useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { getFirebaseAuth } from "@/firebase/client";
 import { isFirebaseConfigured } from "@/firebase/config";
+import { getActiveFirebaseConfig } from "@/firebase/runtime-config";
 import { getFirebaseAuthErrorMessage } from "@/lib/firebase-auth-errors";
 import { APP_NAME } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,7 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    if (!isFirebaseConfigured()) {
+    if (!isFirebaseConfigured(getActiveFirebaseConfig())) {
       setError("Firebase no está configurado en el servidor.");
       setLoading(false);
       return;

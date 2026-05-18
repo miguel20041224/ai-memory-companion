@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
-import { AuthProvider } from "@/components/providers/auth-provider";
-import { ClientErrorBoundary } from "@/components/providers/client-error-boundary";
-import { Toaster } from "sonner";
+import { AppProviders } from "@/components/providers/app-providers";
+import { ChunkLoadRecovery } from "@/components/providers/chunk-load-recovery";
+import { getFirebaseConfigFromEnv } from "@/firebase/config";
 import { APP_NAME } from "@/lib/constants";
 import "./globals.css";
 
@@ -11,6 +11,8 @@ const inter = Inter({
   variable: "--font-inter",
   display: "swap",
 });
+
+const firebaseConfig = getFirebaseConfigFromEnv();
 
 export const metadata: Metadata = {
   title: {
@@ -51,17 +53,8 @@ export default function RootLayout({
   return (
     <html lang="es" className={`dark ${inter.variable} h-full`}>
       <body className="min-h-full bg-background text-foreground antialiased">
-        <ClientErrorBoundary>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
-          <Toaster
-            position="top-center"
-            richColors
-            closeButton
-            toastOptions={{ duration: 4000 }}
-          />
-        </ClientErrorBoundary>
+        <ChunkLoadRecovery />
+        <AppProviders firebaseConfig={firebaseConfig}>{children}</AppProviders>
       </body>
     </html>
   );
