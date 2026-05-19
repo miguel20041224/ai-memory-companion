@@ -90,7 +90,7 @@ export function InsightsPanel({ memories }: InsightsPanelProps) {
               </CardContent>
             </Card>
           ))}
-        </motion.div>
+        </div>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Tus números</CardTitle>
@@ -136,7 +136,7 @@ export function InsightsPanel({ memories }: InsightsPanelProps) {
         )}
 
         {loading && !aiGenerated && (
-          <div className="flex justify-center py-8">
+          <motion.div className="flex justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </motion.div>
         )}
@@ -173,7 +173,7 @@ export function InsightsPanel({ memories }: InsightsPanelProps) {
                 </Card>
               </motion.div>
             ))}
-          </motion.div>
+          </div>
         )}
       </section>
     </motion.div>
