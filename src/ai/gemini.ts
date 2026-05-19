@@ -8,11 +8,10 @@ import {
 import type { MemoryAnalysis } from "@/types/ai";
 import type { Memory } from "@/types/memory";
 import { memoryDisplayContent } from "@/types/memory";
-import {
-  ANALYZE_MEMORY_PROMPT,
-  CHAT_MEMORY_PROMPT,
-  INSIGHTS_BUNDLE_PROMPT,
-} from "./prompts";
+import type { AiActionId } from "@/lib/ai/actions";
+import { getAiAction } from "@/lib/ai/actions";
+import { buildMemoryContextText } from "@/lib/ai/memory-context";
+import { ANALYZE_MEMORY_PROMPT, INSIGHTS_BUNDLE_PROMPT, MEMORY_ACTION_PROMPT } from "./prompts";
 
 const MODEL = "gemini-2.0-flash";
 
@@ -26,20 +25,21 @@ function getClient() {
 
 async function generateText(
   prompt: string,
-  jsonMode = false,
+  options: { jsonMode?: boolean; maxOutputTokens?: number } = {},
 ): Promise<string> {
   return withGeminiRetry(async () => {
     const genAI = getClient();
     const model = genAI.getGenerativeModel({
       model: MODEL,
-      ...(jsonMode
-        ? {
-            generationConfig: {
-              temperature: 0.4,
-              responseMimeType: "application/json",
-            },
-          }
-        : {}),
+      generationConfig: {
+        temperature: options.jsonMode ? 0.4 : 0.5,
+        ...(options.maxOutputTokens
+          ? { maxOutputTokens: options.maxOutputTokens }
+          : {}),
+        ...(options.jsonMode
+          ? { responseMimeType: "application/json" }
+          : {}),
+      },
     });
     const result = await model.generateContent(prompt);
     return result.response.text()?.trim() ?? "";
@@ -47,7 +47,7 @@ async function generateText(
 }
 
 export async function analyzeMemoryText(text: string): Promise<MemoryAnalysis> {
-  const raw = await generateText(ANALYZE_MEMORY_PROMPT(text), true);
+  const raw = await generateText(ANALYZE_MEMORY_PROMPT(text), { jsonMode: true });
   const json = extractJson(raw || "{}");
 
   return {
@@ -65,31 +65,23 @@ export async function analyzeMemoryText(text: string): Promise<MemoryAnalysis> {
   };
 }
 
-export async function answerMemoryQuestion(
-  question: string,
-  memories: Memory[],
+export async function runMemoryAction(
+  action: AiActionId,
+  memory: Memory,
 ): Promise<string> {
-  if (memories.length === 0) {
-    return "No encontré recuerdos relacionados con tu pregunta. Intenta guardar más momentos o reformular la consulta.";
+  const body = memoryDisplayContent(memory).trim();
+  if (!body && memory.type === "text") {
+    throw new Error("Este recuerdo no tiene contenido para analizar.");
   }
 
-  const contextBlock = memories
-    .map((m) => {
-      const content = memoryDisplayContent(m);
-      const snippet =
-        content.length > 300 ? `${content.slice(0, 300)}...` : content;
-      const title = m.aiSummary?.trim() || snippet;
-      return `- Fecha: ${m.createdAt.toISOString()}
-  Tipo: ${m.type}
-  Título: ${title}
-  Palabras clave: ${m.aiKeywords.join(", ") || "—"}
-  Entidades: ${m.aiEntities.join(", ") || "—"}
-  Contenido: ${snippet}`;
-    })
-    .join("\n");
+  const definition = getAiAction(action);
+  const context = buildMemoryContextText(memory);
+  const prompt = MEMORY_ACTION_PROMPT(action, context);
 
-  const text = await generateText(CHAT_MEMORY_PROMPT(question, contextBlock));
-  return text || "No pude generar una respuesta.";
+  const text = await generateText(prompt, {
+    maxOutputTokens: definition.maxOutputTokens,
+  });
+  return text || "No se pudo generar el resultado.";
 }
 
 export interface InsightsBundle {
@@ -110,10 +102,10 @@ export async function generateInsightsBundle(
 
   const stats = buildMemoryStats(memories);
   const summaries = recentMemorySnippets(memories);
-  const raw = await generateText(
-    INSIGHTS_BUNDLE_PROMPT(stats, summaries),
-    true,
-  );
+  const raw = await generateText(INSIGHTS_BUNDLE_PROMPT(stats, summaries), {
+    jsonMode: true,
+    maxOutputTokens: 512,
+  });
   const json = extractJson(raw || "{}");
 
   return {

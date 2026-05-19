@@ -17,7 +17,11 @@ interface AiErrorBody {
 
 const MIN_INTERVAL_MS: Record<string, number> = {
   analyze: 5_000,
-  chat: 3_000,
+  action: 4_000,
+  summarize: 4_000,
+  title: 4_000,
+  emotion: 4_000,
+  reflection: 4_000,
   insights: 15_000,
 };
 

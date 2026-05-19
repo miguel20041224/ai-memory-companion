@@ -3,7 +3,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useMemories } from "@/hooks/use-memories";
 import { FirestoreErrorPanel } from "@/components/firestore/firestore-error-panel";
-import { ChatPanel } from "@/components/chat/chat-panel";
+import { GuidedAiPanel } from "@/components/ai/guided-ai-panel";
 import { Loader2 } from "lucide-react";
 
 export default function ChatPage() {
@@ -12,20 +12,23 @@ export default function ChatPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-xl font-semibold">Chat inteligente</h2>
+      <header className="space-y-1">
+        <h2 className="text-xl font-semibold">Acciones inteligentes</h2>
         <p className="text-sm text-muted-foreground">
-          Pregunta sobre tus recuerdos en lenguaje natural
+          Herramientas guiadas sobre tus recuerdos — sin chat libre
         </p>
-      </div>
+      </header>
       {loading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : error ? (
-        <FirestoreErrorPanel error={error} title="No se pudieron cargar los recuerdos" />
+        <FirestoreErrorPanel
+          error={error}
+          title="No se pudieron cargar los recuerdos"
+        />
       ) : (
-        <ChatPanel memories={memories} />
+        <GuidedAiPanel memories={memories} userId={user?.uid} />
       )}
     </div>
   );

@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useMemories } from "@/hooks/use-memories";
 import { deleteMemory, getMemory } from "@/services/memory.service";
 import type { Memory } from "@/types/memory";
 import {
@@ -24,6 +25,7 @@ export default function MemoryDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
+  const { memories } = useMemories(user?.uid);
   const [memory, setMemory] = useState<Memory | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -185,6 +187,7 @@ export default function MemoryDetailPage() {
       {user && (
         <MemoryAiActions
           memory={memory}
+          allMemories={memories}
           userId={user.uid}
           onUpdated={setMemory}
         />
