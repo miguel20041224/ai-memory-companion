@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { extractBearerToken } from "@/lib/auth/token-utils";
 import { verifyFirebaseIdToken } from "@/lib/auth/verify-firebase-token";
-import { mapSupabaseKeyError } from "@/supabase/keys";
 import { buildMediaStoragePath } from "@/lib/media/storage-paths";
 import { extensionForMime } from "@/lib/upload/audio-utils";
 import { sanitizeFileName } from "@/lib/upload/validation";
 import { getSupabaseAdmin, SUPABASE_MEDIA_BUCKET } from "@/supabase/admin";
 import { getSupabasePublicMediaUrl } from "@/supabase/config";
+import { mapSupabaseKeyError } from "@/supabase/keys";
 
+import { SERVER_DIRECT_UPLOAD_MAX_BYTES } from "@/lib/upload/constants";
 import type { StorageMediaKind } from "@/lib/media/types";
 
 function resolveExtension(
@@ -31,13 +32,27 @@ export async function POST(request: Request) {
     }
 
     const { uid } = await verifyFirebaseIdToken(token);
-    const body = (await request.json()) as {
-      kind?: StorageMediaKind;
-      fileName?: string;
-      mimeType?: string;
-    };
+    const formData = await request.formData();
+    const file = formData.get("file");
 
-    const kind = body.kind;
+    if (!(file instanceof File) || !file.size) {
+      return NextResponse.json(
+        { error: "Archivo de audio o imagen requerido." },
+        { status: 400 },
+      );
+    }
+
+    if (file.size > SERVER_DIRECT_UPLOAD_MAX_BYTES) {
+      return NextResponse.json(
+        {
+          error: `Archivo demasiado grande para subida directa (máx. ${SERVER_DIRECT_UPLOAD_MAX_BYTES / (1024 * 1024)} MB). Usa URL firmada.`,
+          useSignedUpload: true,
+        },
+        { status: 413 },
+      );
+    }
+
+    const kind = formData.get("kind");
     if (kind !== "images" && kind !== "audio") {
       return NextResponse.json(
         { error: "Tipo de medio inválido." },
@@ -45,40 +60,45 @@ export async function POST(request: Request) {
       );
     }
 
-    const mimeType = body.mimeType?.trim() || "application/octet-stream";
+    const mimeType = file.type?.trim() || "application/octet-stream";
     const baseName =
-      sanitizeFileName(body.fileName ?? "").replace(/\.[^.]+$/, "") || kind;
-    const ext = resolveExtension(body.fileName ?? "", mimeType, kind);
+      sanitizeFileName(file.name ?? "").replace(/\.[^.]+$/, "") || kind;
+    const ext = resolveExtension(file.name ?? "", mimeType, kind);
     const fileName = `${baseName}.${ext}`;
     const path = buildMediaStoragePath(uid, kind, fileName);
 
     const supabase = getSupabaseAdmin();
-    const { data, error } = await supabase.storage
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const { error } = await supabase.storage
       .from(SUPABASE_MEDIA_BUCKET)
-      .createSignedUploadUrl(path, { upsert: false });
+      .upload(path, bytes, {
+        contentType: mimeType,
+        upsert: false,
+        cacheControl: "3600",
+      });
 
-    if (error || !data?.signedUrl || !data?.token) {
-      const raw = error?.message ?? "No se pudo crear la URL de subida.";
-      return NextResponse.json(
-        { error: mapSupabaseKeyError(raw) },
-        { status: 500 },
-      );
+    if (error) {
+      const message = mapSupabaseKeyError(error.message);
+      return NextResponse.json({ error: message }, { status: 500 });
     }
 
     return NextResponse.json({
-      signedUrl: data.signedUrl,
-      token: data.token,
       path,
       publicUrl: getSupabasePublicMediaUrl(path),
       fileName,
     });
   } catch (error) {
     const raw =
-      error instanceof Error ? error.message : "Error al preparar la subida.";
+      error instanceof Error ? error.message : "Error al subir el archivo.";
     const message = mapSupabaseKeyError(raw);
-    const status = message.includes("autorizado") || message.includes("Token")
-      ? 401
-      : 500;
+    const status =
+      message.includes("autorizado") ||
+      message.includes("Token") ||
+      message.includes("sesión")
+        ? 401
+        : message.includes("SUPABASE_SERVICE_ROLE")
+          ? 500
+          : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }

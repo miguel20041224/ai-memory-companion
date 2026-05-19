@@ -29,7 +29,7 @@ memories/
 
 **Solo servidor (Vercel, sin prefijo NEXT_PUBLIC):**
 
-- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` — clave **service_role** (JWT que empieza por `eyJ`). **No** uses el «JWT Secret» ni la clave `anon` (provoca `Invalid Compact JWS`).
 
 ## 4. Seguridad
 

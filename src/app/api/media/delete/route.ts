@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
+import { extractBearerToken } from "@/lib/auth/token-utils";
 import { verifyFirebaseIdToken } from "@/lib/auth/verify-firebase-token";
+import { mapSupabaseKeyError } from "@/supabase/keys";
 import { isPathOwnedByUser } from "@/lib/media/storage-paths";
 import { getSupabaseAdmin, SUPABASE_MEDIA_BUCKET } from "@/supabase/admin";
 
 export async function POST(request: Request) {
   try {
-    const authHeader = request.headers.get("authorization");
-    const token =
-      authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
-
+    const token = extractBearerToken(request.headers.get("authorization"));
     if (!token) {
       return NextResponse.json({ error: "No autorizado." }, { status: 401 });
     }
@@ -32,7 +31,10 @@ export async function POST(request: Request) {
       .remove(owned);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json(
+        { error: mapSupabaseKeyError(error.message) },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({ ok: true, deleted: owned.length });

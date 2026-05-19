@@ -9,6 +9,7 @@ import { sanitizeFileName } from "@/lib/upload/validation";
 import {
   MAX_AUDIO_SIZE_BYTES,
   MAX_IMAGE_SIZE_BYTES,
+  SERVER_DIRECT_UPLOAD_MAX_BYTES,
 } from "@/lib/upload/constants";
 import type { StorageMediaKind } from "@/lib/media/types";
 import { isSupabaseConfigured } from "@/supabase/config";
@@ -70,12 +71,88 @@ function validateFileBeforeUpload(file: File, kind: StorageMediaKind): void {
   }
 }
 
+async function uploadViaServerDirect(
+  token: string,
+  kind: StorageMediaKind,
+  file: File,
+  onProgress?: (percent: number) => void,
+): Promise<{ path: string; publicUrl: string; fileName: string }> {
+  const formData = new FormData();
+  formData.append("file", file, file.name || `${kind}-upload`);
+  formData.append("kind", kind);
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    activeXhr = xhr;
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) {
+        const pct = Math.round((event.loaded / event.total) * 100);
+        onProgress?.(Math.min(99, pct));
+      }
+    };
+
+    xhr.onload = () => {
+      activeXhr = null;
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress?.(100);
+        try {
+          const data = JSON.parse(xhr.responseText) as {
+            path: string;
+            publicUrl: string;
+            fileName: string;
+          };
+          resolve(data);
+        } catch {
+          reject(new Error("Respuesta inválida del servidor al subir."));
+        }
+        return;
+      }
+      let message = `Error al subir (HTTP ${xhr.status}).`;
+      try {
+        const err = JSON.parse(xhr.responseText) as {
+          error?: string;
+          useSignedUpload?: boolean;
+        };
+        if (err.error) message = err.error;
+        if (xhr.status === 413 || err.useSignedUpload) {
+          reject(new Error("USE_SIGNED_UPLOAD"));
+          return;
+        }
+      } catch {
+        // ignore
+      }
+      reject(new Error(message));
+    };
+
+    xhr.onerror = () => {
+      activeXhr = null;
+      reject(new Error("Error de red al subir el archivo."));
+    };
+
+    xhr.onabort = () => {
+      activeXhr = null;
+      reject(new Error("Subida cancelada."));
+    };
+
+    xhr.open("POST", "/api/media/upload");
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.send(formData);
+  });
+}
+
 async function requestSignedUpload(
   token: string,
   kind: StorageMediaKind,
   file: File,
   fileName: string,
-): Promise<{ signedUrl: string; path: string; publicUrl: string; fileName: string }> {
+): Promise<{
+  signedUrl: string;
+  token: string;
+  path: string;
+  publicUrl: string;
+  fileName: string;
+}> {
   const res = await fetch("/api/media/signed-upload", {
     method: "POST",
     headers: {
@@ -96,6 +173,7 @@ async function requestSignedUpload(
 
   return (await res.json()) as {
     signedUrl: string;
+    token: string;
     path: string;
     publicUrl: string;
     fileName: string;
@@ -104,6 +182,7 @@ async function requestSignedUpload(
 
 function uploadToSignedUrl(
   signedUrl: string,
+  uploadToken: string,
   file: File,
   onProgress?: (percent: number) => void,
 ): Promise<void> {
@@ -125,11 +204,18 @@ function uploadToSignedUrl(
         resolve();
         return;
       }
-      reject(
-        new Error(
-          `Supabase rechazó la subida (HTTP ${xhr.status}). Comprueba el bucket y las políticas.`,
-        ),
-      );
+      let detail = `Supabase rechazó la subida (HTTP ${xhr.status}).`;
+      try {
+        const body = JSON.parse(xhr.responseText) as {
+          message?: string;
+          error?: string;
+        };
+        const msg = body.message ?? body.error;
+        if (msg) detail = msg;
+      } catch {
+        // ignore
+      }
+      reject(new Error(detail));
     };
 
     xhr.onerror = () => {
@@ -143,12 +229,39 @@ function uploadToSignedUrl(
     };
 
     xhr.open("PUT", signedUrl);
+    xhr.setRequestHeader("Authorization", `Bearer ${uploadToken}`);
     xhr.setRequestHeader(
       "Content-Type",
       file.type || "application/octet-stream",
     );
     xhr.send(file);
   });
+}
+
+async function uploadWithSignedUrl(
+  token: string,
+  kind: StorageMediaKind,
+  file: File,
+  fileName: string,
+  onProgress?: (percent: number) => void,
+): Promise<{ path: string; publicUrl: string; fileName: string }> {
+  const signed = await requestSignedUpload(token, kind, file, fileName);
+  onProgress?.(0);
+  await withTimeout(
+    uploadToSignedUrl(
+      signed.signedUrl,
+      signed.token,
+      file,
+      onProgress,
+    ),
+    UPLOAD_TIMEOUT_MS,
+    "La subida a Supabase tardó demasiado. Comprueba tu conexión.",
+  );
+  return {
+    path: signed.path,
+    publicUrl: signed.publicUrl,
+    fileName: signed.fileName,
+  };
 }
 
 export async function uploadMediaFile(
@@ -172,23 +285,49 @@ export async function uploadMediaFile(
     sanitizeFileName(file.name).replace(/\.[^.]+$/, "") || kind;
   const fileName = `${baseName}.${ext}`;
 
+  const useDirectFirst = file.size <= SERVER_DIRECT_UPLOAD_MAX_BYTES;
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const token = await getFirebaseIdToken();
-      const signed = await requestSignedUpload(token, kind, file, fileName);
+      let result: { path: string; publicUrl: string; fileName: string };
 
-      options?.onProgress?.(0);
-
-      await withTimeout(
-        uploadToSignedUrl(signed.signedUrl, file, options?.onProgress),
-        UPLOAD_TIMEOUT_MS,
-        "La subida a Supabase tardó demasiado. Comprueba tu conexión.",
-      );
+      if (useDirectFirst) {
+        try {
+          options?.onProgress?.(1);
+          result = await withTimeout(
+            uploadViaServerDirect(token, kind, file, options?.onProgress),
+            UPLOAD_TIMEOUT_MS,
+            "La subida tardó demasiado. Comprueba tu conexión.",
+          );
+        } catch (directErr) {
+          const msg =
+            directErr instanceof Error ? directErr.message : "";
+          if (msg !== "USE_SIGNED_UPLOAD") {
+            throw directErr;
+          }
+          result = await uploadWithSignedUrl(
+            token,
+            kind,
+            file,
+            fileName,
+            options?.onProgress,
+          );
+        }
+      } else {
+        result = await uploadWithSignedUrl(
+          token,
+          kind,
+          file,
+          fileName,
+          options?.onProgress,
+        );
+      }
 
       return {
-        downloadUrl: signed.publicUrl,
-        storagePath: signed.path,
-        fileName: signed.fileName,
+        downloadUrl: result.publicUrl,
+        storagePath: result.path,
+        fileName: result.fileName,
         fileSize: file.size,
         mimeType: file.type || "application/octet-stream",
         duration: options?.duration,

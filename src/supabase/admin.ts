@@ -4,6 +4,10 @@ import {
   getSupabaseServiceRoleKey,
   getSupabaseUrl,
 } from "./config";
+import {
+  assertSupabaseServiceRoleKey,
+  normalizeSupabaseKey,
+} from "./keys";
 
 let adminClient: SupabaseClient | null = null;
 
@@ -11,13 +15,15 @@ export function getSupabaseAdmin(): SupabaseClient {
   if (adminClient) return adminClient;
 
   const url = getSupabaseUrl();
-  const serviceKey = getSupabaseServiceRoleKey();
+  const serviceKey = normalizeSupabaseKey(getSupabaseServiceRoleKey());
 
-  if (!url || !serviceKey) {
+  if (!url) {
     throw new Error(
-      "Supabase no está configurado en el servidor. Añade NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY.",
+      "Supabase no está configurado en el servidor. Añade NEXT_PUBLIC_SUPABASE_URL.",
     );
   }
+
+  assertSupabaseServiceRoleKey(serviceKey);
 
   adminClient = createClient(url, serviceKey, {
     auth: {

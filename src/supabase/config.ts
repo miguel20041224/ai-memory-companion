@@ -16,7 +16,10 @@ export function getSupabaseAnonKey(): string {
 }
 
 export function getSupabaseServiceRoleKey(): string {
-  return process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
+  const raw = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+  let key = raw.trim();
+  if (key.toLowerCase().startsWith("bearer ")) key = key.slice(7).trim();
+  return key;
 }
 
 export function getMissingSupabasePublicEnvVars(): SupabasePublicEnvKey[] {

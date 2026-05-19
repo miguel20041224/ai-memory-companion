@@ -1,5 +1,7 @@
 export const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 export const MAX_AUDIO_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB
+/** Subida directa servidor → Supabase (límite body Vercel). */
+export const SERVER_DIRECT_UPLOAD_MAX_BYTES = 4 * 1024 * 1024;
 export const MAX_IMAGES_PER_MEMORY = 6;
 
 export const ALLOWED_IMAGE_MIMES = [
