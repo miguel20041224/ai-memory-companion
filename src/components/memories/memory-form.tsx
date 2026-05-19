@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ImageIcon, Loader2, Mic, Type } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
-import { extractLocalMetadata } from "@/lib/ai/local-metadata";
+import { parseTagsInput } from "@/lib/memory/constants";
 import { createMemory } from "@/services/memory.service";
 import {
   cancelActiveUpload,
@@ -22,6 +22,7 @@ import {
   AudioUploader,
   type AudioPreviewState,
 } from "@/components/upload/audio-uploader";
+import { MemoryMetadataFields } from "@/components/memories/memory-metadata-fields";
 import { UploadProgress } from "@/components/upload/upload-progress";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -43,6 +44,10 @@ export function MemoryForm() {
   const cancelledRef = useRef(false);
   const [type, setType] = useState<MemoryType>("text");
   const [content, setContent] = useState("");
+  const [tagsInput, setTagsInput] = useState("");
+  const [category, setCategory] = useState("");
+  const [mood, setMood] = useState("");
+  const [favorite, setFavorite] = useState(false);
   const [images, setImages] = useState<ImagePreviewItem[]>([]);
   const [audio, setAudio] = useState<AudioPreviewState | null>(null);
   const [phase, setPhase] = useState<SubmitPhase>("idle");
@@ -174,24 +179,22 @@ export function MemoryForm() {
             ? "Nota de voz"
             : "");
 
-      const localMeta = extractLocalMetadata(defaultCaption);
-
-      await createMemory(
-        user.uid,
-        {
-          content: defaultCaption,
-          type,
-          mediaUrl: primaryUrl,
-          mediaUrls,
-          mediaFiles,
-          fileName,
-          fileSize,
-          duration,
-          mimeType,
-          transcription: type === "audio" ? caption || undefined : undefined,
-        },
-        localMeta,
-      );
+      await createMemory(user.uid, {
+        content: defaultCaption,
+        type,
+        favorite,
+        tags: parseTagsInput(tagsInput),
+        category: category || undefined,
+        mood: mood || undefined,
+        mediaUrl: primaryUrl,
+        mediaUrls,
+        mediaFiles,
+        fileName,
+        fileSize,
+        duration,
+        mimeType,
+        transcription: type === "audio" ? caption || undefined : undefined,
+      });
 
       toast.success("Recuerdo guardado");
       router.push("/timeline");
@@ -276,6 +279,18 @@ export function MemoryForm() {
         />
       </section>
 
+      <MemoryMetadataFields
+        tagsInput={tagsInput}
+        onTagsInputChange={setTagsInput}
+        category={category}
+        onCategoryChange={setCategory}
+        mood={mood}
+        onMoodChange={setMood}
+        favorite={favorite}
+        onFavoriteChange={setFavorite}
+        disabled={loading}
+      />
+
       {loading && (
         <UploadProgress
           progress={displayProgress}
@@ -289,11 +304,6 @@ export function MemoryForm() {
           {error}
         </p>
       )}
-
-      <p className="text-xs text-muted-foreground">
-        Guardar es instantáneo y no usa IA. Puedes analizar el recuerdo después
-        desde su detalle.
-      </p>
 
       <Button type="submit" className="w-full" size="lg" disabled={loading}>
         {loading ? (

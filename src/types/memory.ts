@@ -9,20 +9,17 @@ export interface MemoryMediaFile {
   duration?: number;
 }
 
-export interface MemoryAiMetadata {
-  summary: string;
-  keywords: string[];
-  entities: string[];
-  emotionalTone?: string;
-  insights?: string[];
-}
-
 export interface Memory {
   id: string;
   userId: string;
   content: string;
   type: MemoryType;
   createdAt: Date;
+  title?: string;
+  favorite: boolean;
+  tags: string[];
+  category?: string;
+  mood?: string;
   mediaUrl?: string;
   mediaUrls?: string[];
   mediaFiles?: MemoryMediaFile[];
@@ -30,16 +27,17 @@ export interface Memory {
   fileSize?: number;
   duration?: number;
   mimeType?: string;
-  aiSummary?: string;
-  aiKeywords: string[];
-  aiEntities: string[];
-  emotionalTone?: string;
   transcription?: string;
 }
 
 export interface MemoryInput {
   content: string;
   type: MemoryType;
+  title?: string;
+  favorite?: boolean;
+  tags?: string[];
+  category?: string;
+  mood?: string;
   mediaUrl?: string;
   mediaUrls?: string[];
   mediaFiles?: MemoryMediaFile[];
@@ -48,6 +46,14 @@ export interface MemoryInput {
   duration?: number;
   mimeType?: string;
   transcription?: string;
+}
+
+export interface MemoryMetadataUpdate {
+  title?: string;
+  favorite?: boolean;
+  tags?: string[];
+  category?: string | null;
+  mood?: string | null;
 }
 
 export function memoryDisplayContent(memory: Memory): string {
@@ -61,9 +67,22 @@ export function memoryPrimaryImageUrl(memory: Memory): string | undefined {
   return memory.mediaUrls?.[0] ?? memory.mediaUrl;
 }
 
-/** Título visible sin depender de IA. */
+/** Etiquetas del usuario; compatibilidad con datos legacy (aiKeywords). */
+export function memoryTags(memory: Memory): string[] {
+  if (memory.tags.length > 0) return memory.tags;
+  const legacy = (memory as Memory & { aiKeywords?: string[] }).aiKeywords;
+  return legacy ?? [];
+}
+
+/** Emoción manual; compatibilidad con emotionalTone legacy. */
+export function memoryMood(memory: Memory): string | undefined {
+  if (memory.mood?.trim()) return memory.mood.trim();
+  const legacy = (memory as Memory & { emotionalTone?: string }).emotionalTone;
+  return legacy?.trim() || undefined;
+}
+
 export function memoryTitle(memory: Memory): string {
-  if (memory.aiSummary?.trim()) return memory.aiSummary.trim();
+  if (memory.title?.trim()) return memory.title.trim();
 
   const body = memoryDisplayContent(memory).trim();
   if (body) {

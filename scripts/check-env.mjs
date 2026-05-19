@@ -36,10 +36,6 @@ if (!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
   );
 }
 
-if (!process.env.GEMINI_API_KEY?.trim()) {
-  console.warn("[check-env] GEMINI_API_KEY no definida: /api/ai/* fallará.\n");
-}
-
 if (failed) {
   process.exit(1);
 }

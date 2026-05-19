@@ -1,4 +1,5 @@
 import type { Memory } from "@/types/memory";
+import { memoryMood, memoryTags, memoryTitle } from "@/types/memory";
 
 function normalize(text: string): string {
   return text
@@ -7,7 +8,11 @@ function normalize(text: string): string {
     .replace(/\p{M}/gu, "");
 }
 
-export function searchMemories(memories: Memory[], query: string, limit = 12): Memory[] {
+export function searchMemories(
+  memories: Memory[],
+  query: string,
+  limit = 12,
+): Memory[] {
   const q = normalize(query.trim());
   if (!q) return memories.slice(0, limit);
 
@@ -18,10 +23,11 @@ export function searchMemories(memories: Memory[], query: string, limit = 12): M
       [
         memory.content,
         memory.transcription ?? "",
-        memory.aiSummary ?? "",
-        memory.emotionalTone ?? "",
-        ...memory.aiKeywords,
-        ...memory.aiEntities,
+        memory.title ?? "",
+        memoryTitle(memory),
+        memory.category ?? "",
+        memoryMood(memory) ?? "",
+        ...memoryTags(memory),
       ].join(" "),
     );
 

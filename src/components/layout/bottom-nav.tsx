@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Brain, LineChart, Plus, Sparkles } from "lucide-react";
+import { Brain, Compass, Heart, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const links: {
@@ -12,9 +12,9 @@ const links: {
   accent?: boolean;
 }[] = [
   { href: "/timeline", label: "Línea", icon: Brain },
-  { href: "/chat", label: "IA", icon: Sparkles },
+  { href: "/favorites", label: "Favoritos", icon: Heart },
   { href: "/memories/new", label: "Nuevo", icon: Plus, accent: true },
-  { href: "/insights", label: "Insights", icon: LineChart },
+  { href: "/explore", label: "Explorar", icon: Compass },
 ];
 
 export function BottomNav() {

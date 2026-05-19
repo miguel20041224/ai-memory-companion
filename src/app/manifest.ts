@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: APP_NAME,
     short_name: "Memoria",
     description:
-      "Captura recuerdos y conversa con tu memoria personal impulsada por IA.",
+      "Captura y revive tus recuerdos personales con fotos, notas y audios.",
     start_url: "/",
     display: "standalone",
     background_color: "#0c0c0e",

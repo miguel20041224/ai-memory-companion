@@ -5,31 +5,38 @@ import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
+import { ArrowLeft, Heart, Loader2, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
-import { useMemories } from "@/hooks/use-memories";
-import { deleteMemory, getMemory } from "@/services/memory.service";
+import {
+  deleteMemory,
+  getMemory,
+  toggleMemoryFavorite,
+} from "@/services/memory.service";
 import type { Memory } from "@/types/memory";
 import {
   memoryDisplayContent,
+  memoryMood,
   memoryPrimaryImageUrl,
+  memoryTags,
   memoryTitle,
 } from "@/types/memory";
-import { MemoryAiActions } from "@/components/memories/memory-ai-actions";
+import { MemoryMetadataEditor } from "@/components/memories/memory-metadata-editor";
 import { AudioPlayerPreview } from "@/components/upload/audio-player-preview";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 export default function MemoryDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
-  const { memories } = useMemories(user?.uid);
   const [memory, setMemory] = useState<Memory | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [togglingFavorite, setTogglingFavorite] = useState(false);
 
   useEffect(() => {
     if (!user || !params.id) {
@@ -50,6 +57,20 @@ export default function MemoryDetailPage() {
         setLoading(false);
       });
   }, [user, params.id]);
+
+  async function handleToggleFavorite() {
+    if (!user || !memory) return;
+    setTogglingFavorite(true);
+    try {
+      const next = await toggleMemoryFavorite(user.uid, memory);
+      setMemory({ ...memory, favorite: next });
+      toast.success(next ? "Añadido a favoritos" : "Quitado de favoritos");
+    } catch {
+      toast.error("No se pudo actualizar favorito");
+    } finally {
+      setTogglingFavorite(false);
+    }
+  }
 
   async function handleDelete() {
     if (!user || !memory) return;
@@ -88,6 +109,8 @@ export default function MemoryDetailPage() {
   }
 
   const body = memoryDisplayContent(memory);
+  const tags = memoryTags(memory);
+  const mood = memoryMood(memory);
   const imageUrls =
     memory.mediaUrls?.length
       ? memory.mediaUrls
@@ -97,14 +120,32 @@ export default function MemoryDetailPage() {
 
   return (
     <section className="space-y-6">
-      <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => router.back()}>
-          <ArrowLeft className="h-5 w-5" />
-          <span className="sr-only">Volver</span>
+      <header className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="h-5 w-5" />
+            <span className="sr-only">Volver</span>
+          </Button>
+          <time className="text-sm text-muted-foreground">
+            {format(memory.createdAt, "EEEE d MMMM yyyy, HH:mm", { locale: es })}
+          </time>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled={togglingFavorite}
+          onClick={() => void handleToggleFavorite()}
+          aria-label={memory.favorite ? "Quitar de favoritos" : "Añadir a favoritos"}
+        >
+          <Heart
+            className={cn(
+              "h-5 w-5 transition-colors",
+              memory.favorite
+                ? "fill-primary text-primary"
+                : "text-muted-foreground",
+            )}
+          />
         </Button>
-        <time className="text-sm text-muted-foreground">
-          {format(memory.createdAt, "EEEE d MMMM yyyy, HH:mm", { locale: es })}
-        </time>
       </header>
 
       <Card>
@@ -166,28 +207,22 @@ export default function MemoryDetailPage() {
           )}
 
           <section className="flex flex-wrap gap-2">
-            {memory.emotionalTone && (
-              <Badge>{memory.emotionalTone}</Badge>
+            {memory.category && (
+              <Badge variant="default">{memory.category}</Badge>
             )}
-            {memory.aiKeywords.map((kw) => (
+            {mood && <Badge variant="secondary">{mood}</Badge>}
+            {tags.map((kw) => (
               <Badge key={kw} variant="outline">
                 {kw}
               </Badge>
             ))}
           </section>
-
-          {memory.aiEntities.length > 0 && (
-            <p className="text-xs text-muted-foreground">
-              Entidades: {memory.aiEntities.join(", ")}
-            </p>
-          )}
         </CardContent>
       </Card>
 
       {user && (
-        <MemoryAiActions
+        <MemoryMetadataEditor
           memory={memory}
-          allMemories={memories}
           userId={user.uid}
           onUpdated={setMemory}
         />

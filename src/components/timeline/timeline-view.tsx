@@ -2,8 +2,9 @@
 
 import { format, isToday, isYesterday, isThisWeek, isThisYear } from "date-fns";
 import { es } from "date-fns/locale";
-import { Loader2 } from "lucide-react";
+import { CalendarHeart, Loader2 } from "lucide-react";
 import type { Memory } from "@/types/memory";
+import { findOnThisDayMemories } from "@/lib/memory/on-this-day";
 import { FirestoreErrorPanel } from "@/components/firestore/firestore-error-panel";
 import { MemoryCard } from "@/components/memories/memory-card";
 
@@ -30,9 +31,15 @@ interface TimelineViewProps {
   memories: Memory[];
   loading: boolean;
   error: unknown;
+  showOnThisDay?: boolean;
 }
 
-export function TimelineView({ memories, loading, error }: TimelineViewProps) {
+export function TimelineView({
+  memories,
+  loading,
+  error,
+  showOnThisDay = true,
+}: TimelineViewProps) {
   if (loading) {
     return (
       <div className="flex justify-center py-16">
@@ -62,11 +69,30 @@ export function TimelineView({ memories, loading, error }: TimelineViewProps) {
     );
   }
 
+  const onThisDay = showOnThisDay ? findOnThisDayMemories(memories) : [];
   const groups = groupMemories(memories);
   let cardIndex = 0;
 
   return (
     <div className="space-y-8">
+      {onThisDay.length > 0 && (
+        <section className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
+            <CalendarHeart className="h-4 w-4" />
+            Hace un año en este día
+          </h2>
+          <div className="space-y-3">
+            {onThisDay.map((memory) => (
+              <MemoryCard
+                key={memory.id}
+                memory={memory}
+                index={cardIndex++}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
       {Array.from(groups.entries()).map(([label, items]) => (
         <section key={label}>
           <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">

@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     template: `%s · ${APP_NAME}`,
   },
   description:
-    "Tu memoria personal inteligente. Captura momentos y conversa con tus recuerdos.",
+    "Tu diario de recuerdos personales. Fotos, notas de voz y momentos que importan.",
   applicationName: APP_NAME,
   appleWebApp: {
     capable: true,

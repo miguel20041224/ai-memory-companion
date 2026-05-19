@@ -18,9 +18,13 @@ import { getFirebaseDb } from "@/firebase/client";
 import { deleteMediaPaths } from "@/services/storage.service";
 import { isFirestoreIndexError } from "@/lib/firestore-errors";
 import { MEMORIES_COLLECTION } from "@/lib/constants";
-import type { Memory, MemoryInput, MemoryMediaFile, MemoryType } from "@/types/memory";
-import type { MemoryAnalysis } from "@/types/ai";
-import { EMPTY_MEMORY_ANALYSIS } from "@/lib/ai/constants";
+import type {
+  Memory,
+  MemoryInput,
+  MemoryMediaFile,
+  MemoryMetadataUpdate,
+  MemoryType,
+} from "@/types/memory";
 
 function mapMediaFile(raw: unknown): MemoryMediaFile | null {
   if (!raw || typeof raw !== "object") return null;
@@ -36,6 +40,16 @@ function mapMediaFile(raw: unknown): MemoryMediaFile | null {
   };
 }
 
+function mapTags(data: Record<string, unknown>): string[] {
+  if (Array.isArray(data.tags)) {
+    return data.tags.map(String);
+  }
+  if (Array.isArray(data.aiKeywords)) {
+    return data.aiKeywords.map(String);
+  }
+  return [];
+}
+
 function mapMemory(id: string, data: Record<string, unknown>): Memory {
   const createdAt = data.createdAt as Timestamp | undefined;
   const mediaFilesRaw = data.mediaFiles;
@@ -47,12 +61,31 @@ function mapMemory(id: string, data: Record<string, unknown>): Memory {
     ? data.mediaUrls.map(String)
     : undefined;
 
+  const mood =
+    data.mood != null
+      ? String(data.mood)
+      : data.emotionalTone != null
+        ? String(data.emotionalTone)
+        : undefined;
+
+  const title =
+    data.title != null
+      ? String(data.title)
+      : data.aiSummary != null
+        ? String(data.aiSummary)
+        : undefined;
+
   return {
     id,
     userId: String(data.userId ?? ""),
     content: String(data.content ?? ""),
     type: (data.type as MemoryType) ?? "text",
     createdAt: createdAt?.toDate() ?? new Date(),
+    title: title || undefined,
+    favorite: Boolean(data.favorite),
+    tags: mapTags(data),
+    category: data.category ? String(data.category) : undefined,
+    mood: mood || undefined,
     mediaUrl: data.mediaUrl ? String(data.mediaUrl) : undefined,
     mediaUrls,
     mediaFiles,
@@ -60,16 +93,6 @@ function mapMemory(id: string, data: Record<string, unknown>): Memory {
     fileSize: data.fileSize != null ? Number(data.fileSize) : undefined,
     duration: data.duration != null ? Number(data.duration) : undefined,
     mimeType: data.mimeType ? String(data.mimeType) : undefined,
-    aiSummary: data.aiSummary ? String(data.aiSummary) : undefined,
-    aiKeywords: Array.isArray(data.aiKeywords)
-      ? data.aiKeywords.map(String)
-      : [],
-    aiEntities: Array.isArray(data.aiEntities)
-      ? data.aiEntities.map(String)
-      : [],
-    emotionalTone: data.emotionalTone
-      ? String(data.emotionalTone)
-      : undefined,
     transcription: data.transcription
       ? String(data.transcription)
       : undefined,
@@ -88,10 +111,6 @@ function mapSnapshotDocs(
   return docs.map((d) => mapMemory(d.id, d.data()));
 }
 
-/**
- * Suscripción en tiempo real a recuerdos del usuario (timeline, chat, insights).
- * Query principal: where(userId) + orderBy(createdAt desc) → índice compuesto en firestore.indexes.json
- */
 export function subscribeMemories(
   userId: string,
   onData: (memories: Memory[]) => void,
@@ -159,7 +178,6 @@ export async function getMemory(
 export async function createMemory(
   userId: string,
   input: MemoryInput,
-  analysis: MemoryAnalysis = EMPTY_MEMORY_ANALYSIS,
 ): Promise<string> {
   const primaryUrl =
     input.mediaUrls?.[0] ?? input.mediaUrl ?? null;
@@ -168,6 +186,11 @@ export async function createMemory(
     userId,
     content: input.content,
     type: input.type,
+    title: input.title?.trim() || null,
+    favorite: input.favorite ?? false,
+    tags: input.tags ?? [],
+    category: input.category ?? null,
+    mood: input.mood ?? null,
     mediaUrl: primaryUrl,
     mediaUrls: input.mediaUrls ?? (primaryUrl ? [primaryUrl] : []),
     mediaFiles: input.mediaFiles ?? [],
@@ -177,28 +200,46 @@ export async function createMemory(
     mimeType: input.mimeType ?? null,
     transcription: input.transcription ?? null,
     createdAt: serverTimestamp(),
-    aiSummary: analysis.summary?.trim() || null,
-    aiKeywords: analysis.keywords,
-    aiEntities: analysis.entities,
-    emotionalTone: analysis.emotionalTone ?? null,
   });
   return docRef.id;
 }
 
-export async function updateMemoryAiMetadata(
+export async function updateMemoryMetadata(
   userId: string,
   memoryId: string,
-  analysis: MemoryAnalysis,
+  update: MemoryMetadataUpdate,
 ): Promise<void> {
   const memory = await getMemory(userId, memoryId);
   if (!memory) throw new Error("Recuerdo no encontrado");
 
-  await updateDoc(doc(getFirebaseDb(), MEMORIES_COLLECTION, memoryId), {
-    aiSummary: analysis.summary?.trim() || null,
-    aiKeywords: analysis.keywords,
-    aiEntities: analysis.entities,
-    emotionalTone: analysis.emotionalTone ?? null,
-  });
+  const payload: Record<string, unknown> = {};
+
+  if (update.title !== undefined) {
+    payload.title = update.title.trim() || null;
+  }
+  if (update.favorite !== undefined) {
+    payload.favorite = update.favorite;
+  }
+  if (update.tags !== undefined) {
+    payload.tags = update.tags;
+  }
+  if (update.category !== undefined) {
+    payload.category = update.category;
+  }
+  if (update.mood !== undefined) {
+    payload.mood = update.mood;
+  }
+
+  await updateDoc(doc(getFirebaseDb(), MEMORIES_COLLECTION, memoryId), payload);
+}
+
+export async function toggleMemoryFavorite(
+  userId: string,
+  memory: Memory,
+): Promise<boolean> {
+  const next = !memory.favorite;
+  await updateMemoryMetadata(userId, memory.id, { favorite: next });
+  return next;
 }
 
 async function deleteStoragePathsSafe(paths: string[]): Promise<void> {
@@ -206,7 +247,7 @@ async function deleteStoragePathsSafe(paths: string[]): Promise<void> {
   try {
     await deleteMediaPaths(paths);
   } catch {
-    // legacy Firebase URLs or already deleted
+    // legacy URLs or already deleted
   }
 }
 
@@ -241,22 +282,4 @@ export async function deleteMemory(
 
   await deleteStoragePathsSafe([...paths]);
   await deleteDoc(doc(getFirebaseDb(), MEMORIES_COLLECTION, memory.id));
-}
-
-export async function updateMemoryContent(
-  userId: string,
-  memoryId: string,
-  content: string,
-  analysis: MemoryAnalysis,
-): Promise<void> {
-  const memory = await getMemory(userId, memoryId);
-  if (!memory) throw new Error("Recuerdo no encontrado");
-
-  await updateDoc(doc(getFirebaseDb(), MEMORIES_COLLECTION, memoryId), {
-    content,
-    aiSummary: analysis.summary,
-    aiKeywords: analysis.keywords,
-    aiEntities: analysis.entities,
-    emotionalTone: analysis.emotionalTone ?? null,
-  });
 }

@@ -11,6 +11,12 @@ function supabaseImageHost(): string {
 }
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [
+      { source: "/chat", destination: "/explore", permanent: false },
+      { source: "/insights", destination: "/explore", permanent: false },
+    ];
+  },
   images: {
     remotePatterns: [
       {
