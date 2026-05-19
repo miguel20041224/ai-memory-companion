@@ -91,17 +91,33 @@ export function useAudioRecorder() {
 
       recorder.onstop = () => {
         stopTracks();
-        const type = recorder.mimeType || "audio/webm";
-        const blob = new Blob(chunksRef.current, { type });
-        const ext = extensionForMime(type);
-        const file = new File([blob], `grabacion-${Date.now()}.${ext}`, {
-          type,
-          lastModified: Date.now(),
-        });
-        setStatus("stopped");
-        resolve(file);
+        void (async () => {
+          await new Promise((r) => setTimeout(r, 150));
+          const type = recorder.mimeType || "audio/webm";
+          const blob = new Blob(chunksRef.current, { type });
+          if (!blob.size) {
+            setError("La grabación quedó vacía. Graba al menos 1 segundo.");
+            setStatus("error");
+            resolve(null);
+            return;
+          }
+          const ext = extensionForMime(type);
+          const file = new File([blob], `grabacion-${Date.now()}.${ext}`, {
+            type,
+            lastModified: Date.now(),
+          });
+          setStatus("stopped");
+          resolve(file);
+        })();
       };
 
+      if (recorder.state === "recording") {
+        try {
+          recorder.requestData();
+        } catch {
+          // algunos navegadores no implementan requestData
+        }
+      }
       recorder.stop();
     });
   }, [stopTracks]);

@@ -9,12 +9,19 @@ export function getAudioDuration(file: File): Promise<number> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const audio = new Audio();
+    const timer = setTimeout(() => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Tiempo de espera al leer la duración del audio."));
+    }, 12_000);
+
     audio.preload = "metadata";
     audio.onloadedmetadata = () => {
+      clearTimeout(timer);
       URL.revokeObjectURL(url);
-      resolve(audio.duration);
+      resolve(Number.isFinite(audio.duration) ? audio.duration : 0);
     };
     audio.onerror = () => {
+      clearTimeout(timer);
       URL.revokeObjectURL(url);
       reject(new Error("No se pudo leer la duración del audio."));
     };

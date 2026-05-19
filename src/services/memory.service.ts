@@ -14,8 +14,8 @@ import {
   type FirestoreError,
   type Unsubscribe,
 } from "firebase/firestore";
-import { deleteObject, ref } from "firebase/storage";
-import { getFirebaseDb, getFirebaseStorage } from "@/firebase/client";
+import { getFirebaseDb } from "@/firebase/client";
+import { deleteMediaPaths } from "@/services/storage.service";
 import { isFirestoreIndexError } from "@/lib/firestore-errors";
 import { MEMORIES_COLLECTION } from "@/lib/constants";
 import type { Memory, MemoryInput, MemoryMediaFile, MemoryType } from "@/types/memory";
@@ -184,11 +184,12 @@ export async function createMemory(
   return docRef.id;
 }
 
-async function deleteStoragePath(storagePath: string): Promise<void> {
+async function deleteStoragePathsSafe(paths: string[]): Promise<void> {
+  if (!paths.length) return;
   try {
-    await deleteObject(ref(getFirebaseStorage(), storagePath));
+    await deleteMediaPaths(paths);
   } catch {
-    // already deleted or legacy URL-only record
+    // legacy Firebase URLs or already deleted
   }
 }
 
@@ -206,16 +207,22 @@ export async function deleteMemory(
   if (paths.size === 0 && memory.mediaUrl) {
     try {
       const url = new URL(memory.mediaUrl);
-      const match = url.pathname.match(/\/o\/(.+)$/);
-      if (match?.[1]) {
-        paths.add(decodeURIComponent(match[1].split("?")[0]));
+      const firebaseMatch = url.pathname.match(/\/o\/(.+)$/);
+      if (firebaseMatch?.[1]) {
+        paths.add(decodeURIComponent(firebaseMatch[1].split("?")[0]));
+      }
+      const supabaseMatch = url.pathname.match(
+        /\/storage\/v1\/object\/public\/memories\/(.+)$/,
+      );
+      if (supabaseMatch?.[1]) {
+        paths.add(decodeURIComponent(supabaseMatch[1]));
       }
     } catch {
       // not a valid URL
     }
   }
 
-  await Promise.all([...paths].map(deleteStoragePath));
+  await deleteStoragePathsSafe([...paths]);
   await deleteDoc(doc(getFirebaseDb(), MEMORIES_COLLECTION, memory.id));
 }
 

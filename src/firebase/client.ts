@@ -6,7 +6,6 @@ import {
   type Auth,
 } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
-import { getStorage, type FirebaseStorage } from "firebase/storage";
 import { isFirebaseConfigured } from "./config";
 import { getActiveFirebaseConfig } from "./runtime-config";
 
@@ -24,7 +23,6 @@ const FIREBASE_APP_NAME = "ai-memory-companion";
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
 let db: Firestore | undefined;
-let storage: FirebaseStorage | undefined;
 
 function resolveFirebaseApp(config: ReturnType<typeof getActiveFirebaseConfig>): FirebaseApp {
   const existing = getApps().find(
@@ -74,9 +72,4 @@ export function getFirebaseAuth(): Auth {
 export function getFirebaseDb(): Firestore {
   if (!db) db = getFirestore(getAppInstance());
   return db;
-}
-
-export function getFirebaseStorage(): FirebaseStorage {
-  if (!storage) storage = getStorage(getAppInstance());
-  return storage;
 }

@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ImageIcon, Loader2, Mic, Type } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
+import { fetchWithTimeout } from "@/lib/async-utils";
+import { getStorageErrorMessage } from "@/lib/storage-errors";
 import { createMemory } from "@/services/memory.service";
 import {
+  cancelActiveUpload,
   uploadMediaFile,
   uploadMultipleImages,
 } from "@/services/storage.service";
@@ -38,6 +41,7 @@ type SubmitPhase = "idle" | "uploading" | "analyzing" | "saving";
 export function MemoryForm() {
   const router = useRouter();
   const { user } = useAuth();
+  const cancelledRef = useRef(false);
   const [type, setType] = useState<MemoryType>("text");
   const [content, setContent] = useState("");
   const [images, setImages] = useState<ImagePreviewItem[]>([]);
@@ -45,7 +49,6 @@ export function MemoryForm() {
   const [phase, setPhase] = useState<SubmitPhase>("idle");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-
   const loading = phase !== "idle";
 
   function resetMediaForType(next: MemoryType) {
@@ -62,10 +65,15 @@ export function MemoryForm() {
     setError(null);
   }
 
-  function buildAnalyzeText(
-    caption: string,
-    mediaNote: string,
-  ): string {
+  function handleCancel() {
+    cancelledRef.current = true;
+    cancelActiveUpload();
+    setPhase("idle");
+    setUploadProgress(0);
+    toast.info("Operación cancelada");
+  }
+
+  function buildAnalyzeText(caption: string, mediaNote: string): string {
     const parts = [caption.trim(), mediaNote.trim()].filter(Boolean);
     return parts.join("\n\n") || caption;
   }
@@ -92,9 +100,9 @@ export function MemoryForm() {
       return;
     }
 
+    cancelledRef.current = false;
     setError(null);
     setUploadProgress(0);
-
     try {
       let mediaFiles: MemoryMediaFile[] = [];
       let mediaUrls: string[] = [];
@@ -106,11 +114,16 @@ export function MemoryForm() {
 
       if (type === "image" && images.length > 0) {
         setPhase("uploading");
+        setUploadProgress(1);
         const uploaded = await uploadMultipleImages(
           user.uid,
           images.map((i) => i.file),
-          setUploadProgress,
+          (p) => {
+            if (!cancelledRef.current) setUploadProgress(p);
+          },
         );
+        if (cancelledRef.current) return;
+
         mediaFiles = uploaded.map((u) => ({
           url: u.downloadUrl,
           storagePath: u.storagePath,
@@ -127,10 +140,15 @@ export function MemoryForm() {
 
       if (type === "audio" && audio) {
         setPhase("uploading");
+        setUploadProgress(1);
         const uploaded = await uploadMediaFile(user.uid, audio.file, "audio", {
-          onProgress: setUploadProgress,
+          onProgress: (p) => {
+            if (!cancelledRef.current) setUploadProgress(p);
+          },
           duration: audio.duration,
         });
+        if (cancelledRef.current) return;
+
         mediaFiles = [
           {
             url: uploaded.downloadUrl,
@@ -150,6 +168,8 @@ export function MemoryForm() {
       }
 
       setPhase("analyzing");
+      setUploadProgress(type === "text" ? 50 : 92);
+
       const mediaNote =
         type === "image"
           ? `El usuario adjuntó ${images.length} imagen(es).`
@@ -162,20 +182,25 @@ export function MemoryForm() {
         mediaNote,
       );
 
-      const analyzeRes = await fetch("/api/ai/analyze", {
+      const analyzeRes = await fetchWithTimeout("/api/ai/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: analyzeText }),
+        timeoutMs: 90_000,
       });
+
+      if (cancelledRef.current) return;
 
       if (!analyzeRes.ok) {
         const err = (await analyzeRes.json()) as { error?: string };
-        throw new Error(err.error ?? "Error al analizar");
+        throw new Error(err.error ?? "Error al analizar con IA");
       }
 
       const analysis = (await analyzeRes.json()) as MemoryAnalysis;
 
       setPhase("saving");
+      setUploadProgress(98);
+
       await createMemory(
         user.uid,
         {
@@ -196,13 +221,18 @@ export function MemoryForm() {
       toast.success("Recuerdo guardado");
       router.push("/timeline");
     } catch (err) {
+      if (cancelledRef.current) return;
       const message =
-        err instanceof Error ? err.message : "No se pudo guardar el recuerdo.";
+        err instanceof Error
+          ? getStorageErrorMessage(err)
+          : "No se pudo guardar el recuerdo.";
       setError(message);
       toast.error(message);
     } finally {
-      setPhase("idle");
-      setUploadProgress(0);
+      if (!cancelledRef.current) {
+        setPhase("idle");
+        setUploadProgress(0);
+      }
     }
   }
 
@@ -214,6 +244,15 @@ export function MemoryForm() {
         : phase === "saving"
           ? "Guardando recuerdo…"
           : "";
+
+  const displayProgress =
+    phase === "uploading"
+      ? uploadProgress
+      : phase === "analyzing"
+        ? 92
+        : phase === "saving"
+          ? 98
+          : 0;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -241,11 +280,7 @@ export function MemoryForm() {
       </section>
 
       {type === "image" && (
-        <ImageUploader
-          items={images}
-          onChange={setImages}
-          disabled={loading}
-        />
+        <ImageUploader items={images} onChange={setImages} disabled={loading} />
       )}
 
       {type === "audio" && (
@@ -276,10 +311,9 @@ export function MemoryForm() {
 
       {loading && (
         <UploadProgress
-          progress={
-            phase === "uploading" ? uploadProgress : phase === "analyzing" ? 90 : 98
-          }
+          progress={displayProgress}
           label={phaseLabel}
+          onCancel={handleCancel}
         />
       )}
 

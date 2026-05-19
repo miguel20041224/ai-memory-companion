@@ -75,7 +75,7 @@ The AI retrieves relevant memories and generates contextual responses.
 - Image uploads
 - Audio uploads and recordings
 - Browser file access permissions
-- Firebase Storage integration
+- Supabase Storage integration
 - Media previews
 - Modern upload experience
 
@@ -123,10 +123,9 @@ Generate intelligent life analytics such as:
 
 ## Backend & Database
 
-- Firebase
-- Firestore Database
-- Firebase Storage
 - Firebase Authentication
+- Firestore Database
+- Supabase Storage (images & audio)
 
 ---
 
@@ -166,12 +165,17 @@ npm install
 Create a `.env.local` file in the root directory:
 
 ```env
+# Firebase (Auth + Firestore)
 NEXT_PUBLIC_FIREBASE_API_KEY=
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 NEXT_PUBLIC_FIREBASE_APP_ID=
+
+# Supabase Storage
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
 
 GEMINI_API_KEY=
 
@@ -207,13 +211,9 @@ Recommended regions:
 
 ---
 
-## Firebase Storage
+## Supabase Storage
 
-Enable Storage for:
-
-- Image uploads
-- Audio uploads
-- Future media features
+See `supabase/STORAGE_SETUP.md` for bucket setup (`memories`, public read).
 
 ---
 
