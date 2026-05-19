@@ -15,7 +15,7 @@ export default function InsightsPage() {
       <div>
         <h2 className="text-xl font-semibold">Insights</h2>
         <p className="text-sm text-muted-foreground">
-          Patrones y reflexiones sobre tu vida
+          Estadísticas al instante; insights con IA cuando tú quieras
         </p>
       </div>
       {loading ? (

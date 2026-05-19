@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Send } from "lucide-react";
+import { Loader2, Send, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Memory } from "@/types/memory";
 import type { ChatMessage } from "@/types/ai";
 import { searchMemories } from "@/lib/memory-search";
 import { serializeMemory } from "@/lib/api-memory";
+import { callAiApi } from "@/lib/ai/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -19,7 +20,7 @@ const WELCOME_MESSAGE: ChatMessage = {
   id: "welcome",
   role: "assistant",
   content:
-    "Hola. Pregúntame sobre tus recuerdos: fechas, personas, momentos o emociones.",
+    "Hola. Pregúntame sobre tus recuerdos cuando quieras — cada respuesta usa IA bajo demanda.",
   createdAt: new Date(0),
 };
 
@@ -45,27 +46,25 @@ export function ChatPanel({ memories }: ChatPanelProps) {
 
     try {
       const relevant = searchMemories(memories, question);
-      const res = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const result = await callAiApi<{ answer: string }>(
+        "/api/ai/chat",
+        {
           question,
           memories: relevant.map(serializeMemory),
-        }),
-      });
+        },
+        "chat",
+      );
 
-      if (!res.ok) {
-        const err = (await res.json()) as { error?: string };
-        throw new Error(err.error ?? "Error en el chat");
+      if (!result.ok || !result.data) {
+        throw new Error(result.error ?? "Error en el chat");
       }
 
-      const { answer } = (await res.json()) as { answer: string };
       setMessages((prev) => [
         ...prev,
         {
           id: `a-${Date.now()}`,
           role: "assistant",
-          content: answer,
+          content: result.data!.answer,
           createdAt: new Date(),
         },
       ]);
@@ -88,7 +87,16 @@ export function ChatPanel({ memories }: ChatPanelProps) {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-var(--nav-height)-8rem)] flex-col">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="flex h-[calc(100dvh-var(--nav-height)-8rem)] flex-col"
+    >
+      <p className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Sparkles className="h-3.5 w-3.5" />
+        La IA solo responde cuando envías una pregunta.
+      </p>
+
       <div className="flex-1 space-y-3 overflow-y-auto pr-1">
         <AnimatePresence initial={false}>
           {messages.map((msg) => (
@@ -111,7 +119,7 @@ export function ChatPanel({ memories }: ChatPanelProps) {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             Pensando…
-          </div>
+          </motion.div>
         )}
       </div>
 
@@ -128,6 +136,6 @@ export function ChatPanel({ memories }: ChatPanelProps) {
           <span className="sr-only">Enviar</span>
         </Button>
       </form>
-    </div>
+    </motion.div>
   );
 }

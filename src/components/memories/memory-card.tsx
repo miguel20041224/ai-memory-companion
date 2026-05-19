@@ -8,10 +8,7 @@ import { es } from "date-fns/locale";
 import { ImageIcon, Mic, Type } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Memory } from "@/types/memory";
-import {
-  memoryDisplayContent,
-  memoryPrimaryImageUrl,
-} from "@/types/memory";
+import { memoryPrimaryImageUrl, memoryTitle } from "@/types/memory";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -29,7 +26,7 @@ interface MemoryCardProps {
 export function MemoryCard({ memory, index = 0 }: MemoryCardProps) {
   const [imageError, setImageError] = useState(false);
   const Icon = typeIcons[memory.type];
-  const preview = memory.aiSummary ?? memoryDisplayContent(memory);
+  const preview = memoryTitle(memory);
   const thumb = memoryPrimaryImageUrl(memory);
 
   return (

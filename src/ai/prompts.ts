@@ -37,3 +37,18 @@ export const MONTHLY_SUMMARY_PROMPT = (summaries: string) => `
 Resume el mes del usuario en 3-4 oraciones en español, tono reflexivo:
 ${summaries}
 `;
+
+/** Una sola llamada a la API: insights + resumen mensual. */
+export const INSIGHTS_BUNDLE_PROMPT = (stats: string, summaries: string) => `
+Basándote en los datos del usuario, responde SOLO en JSON válido:
+{
+  "insights": "4 insights breves en español, formato lista con viñetas (- ), una por línea",
+  "monthlySummary": "resumen del mes en 3-4 oraciones, tono reflexivo"
+}
+
+ESTADÍSTICAS:
+${stats}
+
+RESÚMENES RECIENTES:
+- ${summaries || "Sin resúmenes aún."}
+`;

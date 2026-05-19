@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import { answerMemoryQuestion } from "@/ai/gemini";
 import { deserializeMemories, type SerializedMemory } from "@/lib/api-memory";
+import {
+  aiErrorResponse,
+  enforceAiRateLimit,
+} from "@/lib/ai/route-handler";
 
 export async function POST(request: Request) {
+  const limited = enforceAiRateLimit(request, "chat");
+  if (limited) return limited;
+
   try {
     const body = (await request.json()) as {
       question?: string;
@@ -20,8 +27,6 @@ export async function POST(request: Request) {
     const answer = await answerMemoryQuestion(question, memories);
     return NextResponse.json({ answer });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Error al procesar la pregunta.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return aiErrorResponse(error);
   }
 }

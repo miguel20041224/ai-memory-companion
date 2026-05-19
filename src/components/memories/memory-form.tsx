@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import { ImageIcon, Loader2, Mic, Type } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
-import { fetchWithTimeout } from "@/lib/async-utils";
-import { getStorageErrorMessage } from "@/lib/storage-errors";
+import { extractLocalMetadata } from "@/lib/ai/local-metadata";
 import { createMemory } from "@/services/memory.service";
 import {
   cancelActiveUpload,
@@ -14,7 +13,6 @@ import {
   uploadMultipleImages,
 } from "@/services/storage.service";
 import type { MemoryType } from "@/types/memory";
-import type { MemoryAnalysis } from "@/types/ai";
 import type { MemoryMediaFile } from "@/types/memory";
 import {
   ImageUploader,
@@ -29,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { getStorageErrorMessage } from "@/lib/storage-errors";
 
 const types: { value: MemoryType; label: string; icon: typeof Type }[] = [
   { value: "text", label: "Texto", icon: Type },
@@ -36,7 +35,7 @@ const types: { value: MemoryType; label: string; icon: typeof Type }[] = [
   { value: "audio", label: "Audio", icon: Mic },
 ];
 
-type SubmitPhase = "idle" | "uploading" | "analyzing" | "saving";
+type SubmitPhase = "idle" | "uploading" | "saving";
 
 export function MemoryForm() {
   const router = useRouter();
@@ -71,11 +70,6 @@ export function MemoryForm() {
     setPhase("idle");
     setUploadProgress(0);
     toast.info("Operación cancelada");
-  }
-
-  function buildAnalyzeText(caption: string, mediaNote: string): string {
-    const parts = [caption.trim(), mediaNote.trim()].filter(Boolean);
-    return parts.join("\n\n") || caption;
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -167,44 +161,25 @@ export function MemoryForm() {
         mimeType = uploaded.mimeType;
       }
 
-      setPhase("analyzing");
-      setUploadProgress(type === "text" ? 50 : 92);
-
-      const mediaNote =
-        type === "image"
-          ? `El usuario adjuntó ${images.length} imagen(es).`
-          : type === "audio"
-            ? `Nota de voz${duration ? ` (${Math.round(duration)}s)` : ""}.`
-            : "";
-
-      const analyzeText = buildAnalyzeText(
-        caption || (type === "image" ? "Recuerdo con imágenes" : "Nota de voz"),
-        mediaNote,
-      );
-
-      const analyzeRes = await fetchWithTimeout("/api/ai/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: analyzeText }),
-        timeoutMs: 90_000,
-      });
-
       if (cancelledRef.current) return;
 
-      if (!analyzeRes.ok) {
-        const err = (await analyzeRes.json()) as { error?: string };
-        throw new Error(err.error ?? "Error al analizar con IA");
-      }
-
-      const analysis = (await analyzeRes.json()) as MemoryAnalysis;
-
       setPhase("saving");
-      setUploadProgress(98);
+      setUploadProgress(type === "text" ? 85 : 98);
+
+      const defaultCaption =
+        caption ||
+        (type === "image"
+          ? "Recuerdo con imágenes"
+          : type === "audio"
+            ? "Nota de voz"
+            : "");
+
+      const localMeta = extractLocalMetadata(defaultCaption);
 
       await createMemory(
         user.uid,
         {
-          content: caption || analysis.summary,
+          content: defaultCaption,
           type,
           mediaUrl: primaryUrl,
           mediaUrls,
@@ -215,7 +190,7 @@ export function MemoryForm() {
           mimeType,
           transcription: type === "audio" ? caption || undefined : undefined,
         },
-        analysis,
+        localMeta,
       );
 
       toast.success("Recuerdo guardado");
@@ -239,20 +214,12 @@ export function MemoryForm() {
   const phaseLabel =
     phase === "uploading"
       ? "Subiendo archivos…"
-      : phase === "analyzing"
-        ? "Analizando con IA…"
-        : phase === "saving"
-          ? "Guardando recuerdo…"
-          : "";
+      : phase === "saving"
+        ? "Guardando recuerdo…"
+        : "";
 
   const displayProgress =
-    phase === "uploading"
-      ? uploadProgress
-      : phase === "analyzing"
-        ? 92
-        : phase === "saving"
-          ? 98
-          : 0;
+    phase === "uploading" ? uploadProgress : phase === "saving" ? 95 : 0;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -322,6 +289,11 @@ export function MemoryForm() {
           {error}
         </p>
       )}
+
+      <p className="text-xs text-muted-foreground">
+        Guardar es instantáneo y no usa IA. Puedes analizar el recuerdo después
+        desde su detalle.
+      </p>
 
       <Button type="submit" className="w-full" size="lg" disabled={loading}>
         {loading ? (

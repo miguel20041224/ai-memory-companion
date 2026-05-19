@@ -60,3 +60,17 @@ export function memoryDisplayContent(memory: Memory): string {
 export function memoryPrimaryImageUrl(memory: Memory): string | undefined {
   return memory.mediaUrls?.[0] ?? memory.mediaUrl;
 }
+
+/** Título visible sin depender de IA. */
+export function memoryTitle(memory: Memory): string {
+  if (memory.aiSummary?.trim()) return memory.aiSummary.trim();
+
+  const body = memoryDisplayContent(memory).trim();
+  if (body) {
+    return body.length > 100 ? `${body.slice(0, 100)}…` : body;
+  }
+
+  if (memory.type === "image") return "Recuerdo con imágenes";
+  if (memory.type === "audio") return "Nota de voz";
+  return "Recuerdo";
+}

@@ -20,6 +20,7 @@ import { isFirestoreIndexError } from "@/lib/firestore-errors";
 import { MEMORIES_COLLECTION } from "@/lib/constants";
 import type { Memory, MemoryInput, MemoryMediaFile, MemoryType } from "@/types/memory";
 import type { MemoryAnalysis } from "@/types/ai";
+import { EMPTY_MEMORY_ANALYSIS } from "@/lib/ai/constants";
 
 function mapMediaFile(raw: unknown): MemoryMediaFile | null {
   if (!raw || typeof raw !== "object") return null;
@@ -158,7 +159,7 @@ export async function getMemory(
 export async function createMemory(
   userId: string,
   input: MemoryInput,
-  analysis: MemoryAnalysis,
+  analysis: MemoryAnalysis = EMPTY_MEMORY_ANALYSIS,
 ): Promise<string> {
   const primaryUrl =
     input.mediaUrls?.[0] ?? input.mediaUrl ?? null;
@@ -176,12 +177,28 @@ export async function createMemory(
     mimeType: input.mimeType ?? null,
     transcription: input.transcription ?? null,
     createdAt: serverTimestamp(),
-    aiSummary: analysis.summary,
+    aiSummary: analysis.summary?.trim() || null,
     aiKeywords: analysis.keywords,
     aiEntities: analysis.entities,
     emotionalTone: analysis.emotionalTone ?? null,
   });
   return docRef.id;
+}
+
+export async function updateMemoryAiMetadata(
+  userId: string,
+  memoryId: string,
+  analysis: MemoryAnalysis,
+): Promise<void> {
+  const memory = await getMemory(userId, memoryId);
+  if (!memory) throw new Error("Recuerdo no encontrado");
+
+  await updateDoc(doc(getFirebaseDb(), MEMORIES_COLLECTION, memoryId), {
+    aiSummary: analysis.summary?.trim() || null,
+    aiKeywords: analysis.keywords,
+    aiEntities: analysis.entities,
+    emotionalTone: analysis.emotionalTone ?? null,
+  });
 }
 
 async function deleteStoragePathsSafe(paths: string[]): Promise<void> {

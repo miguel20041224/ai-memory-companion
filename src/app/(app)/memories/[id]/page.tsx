@@ -12,7 +12,9 @@ import type { Memory } from "@/types/memory";
 import {
   memoryDisplayContent,
   memoryPrimaryImageUrl,
+  memoryTitle,
 } from "@/types/memory";
+import { MemoryAiActions } from "@/components/memories/memory-ai-actions";
 import { AudioPlayerPreview } from "@/components/upload/audio-player-preview";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -106,7 +108,7 @@ export default function MemoryDetailPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg leading-snug">
-            {memory.aiSummary ?? body}
+            {memoryTitle(memory)}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -179,6 +181,14 @@ export default function MemoryDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {user && (
+        <MemoryAiActions
+          memory={memory}
+          userId={user.uid}
+          onUpdated={setMemory}
+        />
+      )}
 
       <Button
         variant="destructive"

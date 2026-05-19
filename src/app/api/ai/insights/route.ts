@@ -1,22 +1,23 @@
 import { NextResponse } from "next/server";
-import { generateInsights, generateMonthlySummary } from "@/ai/gemini";
+import { generateInsightsBundle } from "@/ai/gemini";
 import { deserializeMemories, type SerializedMemory } from "@/lib/api-memory";
+import {
+  aiErrorResponse,
+  enforceAiRateLimit,
+} from "@/lib/ai/route-handler";
 
 export async function POST(request: Request) {
+  const limited = enforceAiRateLimit(request, "insights");
+  if (limited) return limited;
+
   try {
     const body = (await request.json()) as {
       memories?: SerializedMemory[];
     };
     const memories = deserializeMemories(body.memories ?? []);
-    const [insights, monthlySummary] = await Promise.all([
-      generateInsights(memories),
-      generateMonthlySummary(memories),
-    ]);
-
-    return NextResponse.json({ insights, monthlySummary });
+    const bundle = await generateInsightsBundle(memories);
+    return NextResponse.json(bundle);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Error al generar insights.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return aiErrorResponse(error);
   }
 }

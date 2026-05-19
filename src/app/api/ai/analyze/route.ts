@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { analyzeMemoryText } from "@/ai/gemini";
+import {
+  aiErrorResponse,
+  enforceAiRateLimit,
+} from "@/lib/ai/route-handler";
 
 export async function POST(request: Request) {
+  const limited = enforceAiRateLimit(request, "analyze");
+  if (limited) return limited;
+
   try {
     const body = (await request.json()) as { text?: string };
     const text = body.text?.trim();
@@ -15,8 +22,6 @@ export async function POST(request: Request) {
     const analysis = await analyzeMemoryText(text);
     return NextResponse.json(analysis);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Error al analizar el recuerdo.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return aiErrorResponse(error);
   }
 }
